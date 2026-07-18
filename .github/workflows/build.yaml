@@ -1,9 +1,6 @@
-name: build
+name: CI
 
 on:
-  push:
-    branches:
-      - main
   pull_request:
   workflow_dispatch:
 
@@ -16,21 +13,25 @@ permissions:
 
 jobs:
   test:
+    name: Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out code
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-go@v5
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
           go-version: '1.23'
 
       - name: Vet
         run: go vet ./...
 
-      - name: Test
+      - name: Run tests
         run: go test -race ./...
 
   build:
+    name: Build (${{ matrix.goos }}/${{ matrix.goarch }})
     needs: test
     strategy:
       fail-fast: false
@@ -45,13 +46,15 @@ jobs:
           - { goos: windows, goarch: arm64 }
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out code
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-go@v5
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
           go-version: '1.23'
 
-      - name: Build
+      - name: Build binary
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
@@ -67,7 +70,8 @@ jobs:
             -ldflags "-s -w -X bridge/internal/config.DefaultVersion=${VER}" \
             -o "dist/${BIN}" ./cmd/bridge
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
         with:
           name: bridge-${{ matrix.goos }}-${{ matrix.goarch }}
           path: dist/*
