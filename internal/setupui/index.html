@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf" content="__CSRF__">
+<title data-i18n="title">ViaVeritas Bridge · Setup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Hanken+Grotesque:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* Brand teal/navy scale (single source of truth) */
+    --t1:#F6FEFF; --t2:#ECFCFE; --t3:#CCF5FA; --t4:#7ECFD7; --t5:#43B3BE;
+    --t6:#148D98; --t7:#0F636B; --t8:#1E2433; --t9:#141826;
+
+    /* Semantic tokens mapped onto the scale */
+    --paper:var(--t1);
+    --paper-2:var(--t2);
+    --line:var(--t3);
+    --ink:var(--t9);
+    --ink-soft:var(--t7);
+    --teal:var(--t6);
+    --teal-deep:var(--t7);
+    --teal-wash:var(--t3);
+    --card:#FFFFFF;
+    /* Error semantics kept distinct for usability (no red in the brand scale) */
+    --err:#C0573B; --err-wash:#F6E7E1; --err-ink:#8A3A25;
+
+    --shadow:0 1px 2px rgba(20,24,38,.05),0 8px 24px -12px rgba(20,24,38,.22);
+    --shadow-lg:0 2px 4px rgba(20,24,38,.06),0 24px 56px -20px rgba(20,24,38,.30);
+    --r:14px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:"Hanken Grotesque",ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+    line-height:1.5;
+    position:relative;
+    overflow-x:hidden;
+  }
+  /* atmosphere: faint radial wash + grain */
+  body::before{
+    content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background:
+      radial-gradient(900px 600px at 88% -8%,rgba(20,141,152,.12),transparent 60%),
+      radial-gradient(700px 500px at -6% 108%,rgba(67,179,190,.10),transparent 55%);
+  }
+  body::after{
+    content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.5;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='.03'/%3E%3C/svg%3E");
+  }
+
+  /* ---- language switch (top-right) ---- */
+  .langbar{position:fixed;top:18px;right:22px;z-index:10;display:flex;
+    background:var(--card);border:1px solid var(--line);border-radius:999px;
+    padding:3px;box-shadow:var(--shadow)}
+  .langbar button{font:inherit;font-size:12.5px;font-weight:700;border:0;cursor:pointer;
+    background:none;color:var(--ink-soft);padding:6px 13px;border-radius:999px;
+    letter-spacing:.04em;transition:background .2s,color .2s}
+  .langbar button:hover{color:var(--ink)}
+  .langbar button.active{background:var(--teal);color:#fff}
+  @media(max-width:560px){.langbar{top:12px;right:12px}}
+
+  .shell{position:relative;z-index:1;max-width:1080px;margin:0 auto;padding:34px 28px 80px}
+  @media(max-width:860px){.shell{padding:26px 20px 60px}}
+  .wrap{display:grid;grid-template-columns:248px 1fr;gap:54px;align-items:start}
+  @media(max-width:860px){.wrap{grid-template-columns:1fr;gap:30px}}
+
+  /* ---- step rail ---- */
+  .rail{position:sticky;top:34px}
+  @media(max-width:860px){.rail{position:static}}
+  .steps{list-style:none;display:flex;flex-direction:column;gap:2px}
+  @media(max-width:860px){.steps{flex-direction:row;gap:6px;overflow:auto;padding-bottom:4px}}
+  .step{display:flex;gap:13px;align-items:flex-start;padding:12px;border-radius:12px;
+    cursor:pointer;opacity:.5;transition:opacity .2s,background .2s}
+  .step:hover{background:var(--paper-2);opacity:1}
+  .step.active,.step.done{opacity:1}
+  .step.active{background:var(--teal-wash)}
+  @media(max-width:860px){.step{flex-direction:column;align-items:center;
+    min-width:108px;text-align:center;padding:10px 8px}}
+  /* Step indicator circle — strict fixed box in EVERY state/pseudo-class.
+     30x30 with a constant 1.5px border throughout; only colours and the
+     inner glyph ever change, never the geometry. */
+  .dot{box-sizing:border-box;width:30px;height:30px;min-width:30px;min-height:30px;
+    border-radius:50%;border:1.5px solid var(--line);background:var(--card);
+    color:var(--ink-soft);font-size:13.5px;font-weight:700;display:grid;flex:none;
+    transition:border-color .25s ease,background .25s ease,color .25s ease;
+    font-variant-numeric:tabular-nums}
+  /* number and checkmark occupy the same grid cell, so swapping one for the
+     other cannot reflow or resize the circle */
+  .dot>.dot-num,.dot>.dot-check{grid-area:1/1;place-self:center}
+  .dot>.dot-check{width:16px;height:16px;display:none}
+  .step .txt b{font-size:14.5px;font-weight:600;display:block;letter-spacing:-.01em;color:var(--ink)}
+  .step .txt small{font-size:12px;color:var(--ink-soft)}
+  .step.active .dot{border-color:var(--teal);background:var(--teal);color:#fff}
+  .step.active .txt b{color:var(--teal-deep)}
+  /* completed: recolour only, then replace the integer with the SVG check.
+     Deliberately no width/height/margin/padding/font-size rules here. */
+  .step.done .dot{border-color:var(--teal);background:var(--teal-wash);color:var(--teal-deep)}
+  .step.done .dot>.dot-num{display:none}
+  .step.done .dot>.dot-check{display:block}
+
+  /* ---- cloud connection illustration (step 3) ---- */
+  .cloudviz{display:flex;align-items:center;justify-content:center;
+    padding:18px 0 8px}
+  .cv-node{width:66px;height:66px;border-radius:16px;display:grid;place-items:center;
+    flex:none;background:var(--paper-2);border:1px solid var(--line);color:var(--ink-soft)}
+  .cv-node svg{width:30px;height:30px}
+  .cv-node.cloud{border:0;color:#fff;
+    background:linear-gradient(135deg,var(--t5),var(--t7));
+    animation:cvpulse 2.4s ease-in-out infinite}
+  @keyframes cvpulse{0%,100%{box-shadow:0 0 0 7px var(--teal-wash)}
+    50%{box-shadow:0 0 0 13px var(--teal-wash)}}
+  .cv-link{position:relative;width:104px;height:2px;margin:0 10px;
+    background:var(--line);border-radius:2px;overflow:hidden}
+  .cv-link::before{content:"";position:absolute;top:0;bottom:0;width:36%;
+    border-radius:2px;background:linear-gradient(90deg,transparent,var(--teal),transparent);
+    animation:cvflow 1.7s linear infinite}
+  @keyframes cvflow{from{transform:translateX(-120%)}to{transform:translateX(380%)}}
+  .cv-caps{display:flex;justify-content:space-between;font-size:11.5px;
+    font-weight:600;color:var(--ink-soft);letter-spacing:.05em;
+    text-transform:uppercase;margin-top:12px;padding:0 2px}
+
+  /* ---- package install illustration (step 3) ---- */
+  .pkgviz{display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:8px;padding:18px 0 8px}
+  .pkg-arrow{color:var(--teal);animation:pkgdrop 1.7s ease-in-out infinite}
+  .pkg-arrow svg{width:24px;height:24px;display:block}
+  @keyframes pkgdrop{0%{transform:translateY(-4px);opacity:0}
+    30%{opacity:1}70%{opacity:1}100%{transform:translateY(10px);opacity:0}}
+  .pkg-box{width:66px;height:66px;border-radius:16px;display:grid;place-items:center;
+    flex:none;color:#fff;background:linear-gradient(135deg,var(--t5),var(--t7));
+    animation:pkgpulse 2.4s ease-in-out infinite}
+  .pkg-box svg{width:30px;height:30px}
+  @keyframes pkgpulse{0%,100%{box-shadow:0 0 0 7px var(--teal-wash);transform:scale(1)}
+    50%{box-shadow:0 0 0 13px var(--teal-wash);transform:scale(1.04)}}
+
+  /* ---- main panel ---- */
+  .stage{min-width:0}
+  .eyebrow{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--teal-deep);
+    font-weight:600;margin-bottom:12px}
+  h1{font-family:"Fraunces",serif;font-weight:500;font-size:clamp(28px,4.4vw,42px);
+    letter-spacing:-.02em;line-height:1.08;margin-bottom:14px}
+  h1 em{font-style:italic;color:var(--teal-deep)}
+  .lede{font-size:16px;color:var(--ink-soft);max-width:54ch;margin-bottom:30px}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+    box-shadow:var(--shadow);overflow:hidden}
+  .card+.card{margin-top:18px}
+  .card-pad{padding:24px 26px}
+
+  .panel{display:none;animation:rise .5s cubic-bezier(.16,.84,.44,1) both}
+  .panel.show{display:block}
+  @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
+  /* folder browser */
+  .crumbs{display:flex;align-items:center;gap:5px;flex-wrap:wrap;font-size:13px;
+    padding:14px 20px;border-bottom:1px solid var(--line);background:var(--paper-2);color:var(--ink-soft)}
+  .crumbs button{font:inherit;border:0;background:none;color:var(--teal-deep);cursor:pointer;
+    padding:3px 7px;border-radius:7px;font-weight:600}
+  .crumbs button:hover{background:var(--teal-wash)}
+  .crumbs .sep{opacity:.45}
+  .flist{max-height:300px;overflow:auto}
+  .frow{display:flex;align-items:center;gap:12px;width:100%;border:0;background:none;
+    font:inherit;color:var(--ink);text-align:left;padding:13px 22px;cursor:pointer;
+    border-bottom:1px solid var(--paper-2);transition:background .15s}
+  .frow:hover{background:var(--teal-wash)}
+  .frow svg{width:19px;height:19px;color:var(--t5);flex:none}
+  .frow span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
+  .frow small{color:var(--ink-soft);font-size:12px}
+  .fempty{padding:34px 22px;text-align:center;color:var(--ink-soft);font-size:13.5px}
+  .picked{display:flex;align-items:center;gap:10px;padding:15px 22px;background:var(--teal-wash);
+    border-top:1px solid var(--line);font-size:13.5px}
+  .picked code{font-family:"Hanken Grotesque";font-weight:600;color:var(--teal-deep);
+    background:var(--card);border:1px solid var(--t4);padding:3px 9px;border-radius:7px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:rtl;text-align:left}
+
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:22px}
+  .grow{flex:1;min-width:200px}
+
+  label.fld{display:block;font-size:12.5px;font-weight:600;color:var(--ink);
+    letter-spacing:.02em;margin:0 0 7px}
+  input[type=text]{width:100%;font:inherit;font-size:15px;padding:13px 15px;
+    border:1px solid var(--line);border-radius:11px;background:var(--card);color:var(--ink);
+    transition:border-color .2s,box-shadow .2s}
+  input[type=text]::placeholder{color:var(--t5)}
+  input[type=text]:focus{outline:0;border-color:var(--teal);box-shadow:0 0 0 4px var(--teal-wash)}
+  .code-in{font-family:"Fraunces",serif;font-size:24px;letter-spacing:.22em;text-align:center;
+    font-weight:500;padding:16px;text-transform:uppercase}
+
+  .btn{font:inherit;font-weight:600;font-size:14.5px;border:0;border-radius:11px;
+    padding:13px 24px;cursor:pointer;display:inline-flex;align-items:center;gap:9px;
+    transition:transform .12s,box-shadow .2s,background .2s;letter-spacing:.01em}
+  .btn:active{transform:translateY(1px)}
+  .btn-primary{background:var(--ink);color:var(--t1);box-shadow:var(--shadow)}
+  .btn-primary:hover{background:var(--t8);box-shadow:var(--shadow-lg)}
+  .btn-primary:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
+  .btn-ghost{background:transparent;color:var(--ink-soft);padding:13px 14px}
+  .btn-ghost:hover{color:var(--ink)}
+  .btn .sp{width:15px;height:15px;border:2px solid currentColor;border-right-color:transparent;
+    border-radius:50%;animation:spin .7s linear infinite;display:none}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .btn.loading .sp{display:inline-block}
+  .btn.loading .lbl{opacity:.7}
+
+  details.adv{margin-top:20px;border-top:1px dashed var(--line);padding-top:16px}
+  details.adv summary{cursor:pointer;font-size:13px;color:var(--ink-soft);font-weight:600;
+    list-style:none;display:inline-flex;align-items:center;gap:7px;user-select:none}
+  details.adv summary::-webkit-details-marker{display:none}
+  details.adv summary .chev{transition:transform .2s}
+  details.adv[open] summary .chev{transform:rotate(90deg)}
+  details.adv .body{margin-top:16px;animation:rise .35s ease both}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:560px){.grid2{grid-template-columns:1fr}}
+  .chk{display:flex;align-items:center;gap:10px;margin-top:18px;font-size:13.5px;
+    color:var(--ink);cursor:pointer}
+  .chk input{width:17px;height:17px;accent-color:var(--teal);flex:none;cursor:pointer}
+
+  /* activity log (de-scarified terminal) */
+  .log{margin-top:20px;border:1px solid var(--line);border-radius:12px;overflow:hidden;
+    display:none;background:var(--card)}
+  .log.show{display:block;animation:rise .35s ease both}
+  .log-h{display:flex;align-items:center;gap:9px;padding:12px 16px;background:var(--paper-2);
+    border-bottom:1px solid var(--line);font-size:12.5px;font-weight:600;color:var(--ink-soft);
+    letter-spacing:.04em}
+  .log-h .ds{width:8px;height:8px;border-radius:50%;background:var(--t5);
+    animation:pulse 1.1s ease-in-out infinite}
+  @keyframes pulse{50%{opacity:.35}}
+  .log-h.ok .ds{background:var(--teal);animation:none}
+  .log-h.err .ds{background:var(--err);animation:none}
+  .log-b{font-family:"SFMono-Regular",ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;
+    line-height:1.65;color:var(--t8);padding:14px 18px;max-height:230px;overflow:auto;
+    white-space:pre-wrap;word-break:break-word}
+  .log-b:empty::before{content:attr(data-empty);color:var(--t5)}
+
+  .note{display:flex;gap:11px;padding:14px 16px;border-radius:11px;font-size:13.5px;
+    margin-top:18px;align-items:flex-start}
+  .note svg{width:18px;height:18px;flex:none;margin-top:1px}
+  .note.tip{background:var(--paper-2);color:var(--ink-soft)}
+  .note.err{background:var(--err-wash);color:var(--err-ink)}
+  .note.ok{background:var(--teal-wash);color:var(--teal-deep)}
+
+  /* done screen */
+  .done-screen{text-align:center;padding:50px 30px}
+  .seal{width:74px;height:74px;border-radius:50%;background:var(--teal);margin:0 auto 24px;
+    display:grid;place-items:center;box-shadow:0 0 0 9px var(--teal-wash);
+    animation:pop .6s cubic-bezier(.2,1.3,.4,1) both}
+  @keyframes pop{0%{transform:scale(0)}60%{transform:scale(1.12)}100%{transform:scale(1)}}
+  .seal svg{width:34px;height:34px;color:#fff}
+  .done-screen h2{font-family:"Fraunces",serif;font-weight:500;font-size:30px;letter-spacing:-.02em;margin-bottom:10px}
+  .done-screen p{color:var(--ink-soft);max-width:42ch;margin:0 auto 26px}
+  .kv{display:inline-grid;grid-template-columns:auto auto;gap:8px 22px;text-align:left;
+    background:var(--paper-2);border:1px solid var(--line);border-radius:12px;padding:18px 26px;margin-bottom:8px}
+  .kv dt{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft);align-self:center}
+  .kv dd{font-family:"Hanken Grotesque";font-weight:600;font-size:14.5px}
+  .kv dd a{color:var(--teal-deep)}
+
+  .hint{font-size:12.5px;color:var(--ink-soft);margin-top:14px}
+  .skel{height:14px;border-radius:7px;background:linear-gradient(90deg,var(--paper-2),var(--card),var(--paper-2));
+    background-size:200% 100%;animation:sh 1.3s linear infinite}
+  @keyframes sh{to{background-position:-200% 0}}
+
+  /* indeterminate progress bar — preview scan */
+  .pbar{height:8px;border-radius:999px;background:var(--paper-2);overflow:hidden;position:relative}
+  .pbar-fill{position:absolute;top:0;bottom:0;left:0;width:38%;border-radius:999px;
+    background:linear-gradient(90deg,var(--t4),var(--t6));
+    animation:pbar 1.25s ease-in-out infinite}
+  @keyframes pbar{from{transform:translateX(-115%)}to{transform:translateX(285%)}}
+</style>
+</head>
+<body>
+<div class="langbar" id="langbar">
+  <button data-lang="en">EN</button>
+  <button data-lang="el">ΕΛ</button>
+</div>
+<div class="shell">
+  <div class="wrap">
+  <aside class="rail">
+    <ol class="steps" id="rail">
+      <li class="step" data-s="1"><span class="dot"><span class="dot-num">1</span><svg class="dot-check" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="txt"><b data-i18n="s1t">Choose folder</b><small data-i18n="s1d">Files to share</small></span></li>
+      <li class="step" data-s="2"><span class="dot"><span class="dot-num">2</span><svg class="dot-check" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="txt"><b data-i18n="spre_t">Preview files</b><small data-i18n="spre_d">Check what syncs</small></span></li>
+      <li class="step" data-s="3"><span class="dot"><span class="dot-num">3</span><svg class="dot-check" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="txt"><b data-i18n="s2t">Install service</b><small data-i18n="s2d">Runs on startup</small></span></li>
+      <li class="step" data-s="4"><span class="dot"><span class="dot-num">4</span><svg class="dot-check" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="txt"><b data-i18n="s3t">Pair with ViaVeritas</b><small data-i18n="s3d">Enter your code</small></span></li>
+    </ol>
+  </aside>
+
+  <main class="stage">
+    <!-- STEP 1 -->
+    <section class="panel" id="p1">
+      <div class="eyebrow" data-i18n="step1of4">Step 1 of 4</div>
+      <h1 data-i18n-html="p1_h">Pick the folder you want to <em>share</em>.</h1>
+      <p class="lede" data-i18n="p1_lede">ViaVeritas will keep these files in sync with your clinic's account. Browse to the folder — you can also create a new one.</p>
+      <div class="card">
+        <div class="crumbs" id="crumbs"></div>
+        <div class="flist" id="flist"></div>
+        <div class="picked" id="picked" style="display:none">
+          <svg viewBox="0 0 24 24" fill="none" width="18" height="18"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span><span data-i18n="selected">Selected:</span> <code id="pickedPath"></code></span>
+        </div>
+      </div>
+      <details class="adv" id="cfgAdv">
+        <summary><svg class="chev" viewBox="0 0 24 24" width="13" height="13" fill="none"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg> <span data-i18n="adv">Advanced settings</span></summary>
+        <div class="body">
+          <div class="grid2">
+            <div><label class="fld" for="cfgBridgePort" data-i18n="f_bridge">Bridge API port</label><input type="text" id="cfgBridgePort" inputmode="numeric" autocomplete="off" data-i18n-ph="ph_bridge" placeholder="Auto (6500–7500)"></div>
+            <div><label class="fld" for="cfgScanInterval" data-i18n="f_scan">Sync check interval (seconds)</label><input type="text" id="cfgScanInterval" inputmode="numeric" autocomplete="off" placeholder="15"></div>
+          </div>
+          <div class="grid2" style="margin-top:16px">
+            <div><label class="fld" for="cfgLogDir" data-i18n="f_log">Log folder</label><input type="text" id="cfgLogDir" autocomplete="off" spellcheck="false" data-i18n-ph="ph_log" placeholder="Default (next to the program)"></div>
+          </div>
+          <label class="chk"><input type="checkbox" id="cfgHidden"><span data-i18n="chk_hidden">Include hidden files and folders (dotfiles) in the sync</span></label>
+          <p class="hint" data-i18n="adv_hint">Leave these as-is unless ViaVeritas support asked you to change them. Empty fields keep the current or automatic value.</p>
+        </div>
+      </details>
+      <div class="row">
+        <button class="btn btn-ghost" id="newFolderBtn" data-i18n="btn_newfolder">＋ New folder here</button>
+        <div style="flex:1"></div>
+        <button class="btn btn-primary" id="b1" disabled><span class="sp"></span><span class="lbl" data-i18n="btn_save">Save &amp; continue</span></button>
+      </div>
+      <div class="log" id="log1"><div class="log-h" id="log1h"><span class="ds"></span><span data-i18n="log1">Saving configuration</span></div><div class="log-b" id="log1b"></div></div>
+      <div class="note tip">
+        <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.7"/><path d="M12 11v5M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <span data-i18n="note_tip">The folder stays on this computer. ViaVeritas only mirrors it so your team can reach the files from the CRM.</span>
+      </div>
+    </section>
+
+    <!-- STEP 2 — preview -->
+    <section class="panel" id="ppre">
+      <div class="eyebrow" data-i18n="step2of4">Step 2 of 4</div>
+      <h1 data-i18n-html="ppre_h">Preview what will <em>sync</em>.</h1>
+      <p class="lede" data-i18n="ppre_lede">A quick local scan — no files are uploaded and the ViaVeritas API isn't contacted yet.</p>
+      <div class="card card-pad" id="preCard">
+        <div id="preScan">
+          <div style="display:flex;align-items:center;gap:11px;color:var(--ink-soft);font-size:14px">
+            <span class="sp" style="display:inline-block;border-color:var(--ink-soft);border-right-color:transparent;width:16px;height:16px"></span>
+            <span data-i18n="pre_scanning">Scanning your folder…</span>
+          </div>
+          <div class="pbar" style="margin-top:16px"><div class="pbar-fill"></div></div>
+          <p class="hint" id="preCount" style="margin-top:8px"></p>
+        </div>
+        <div id="preBody" style="display:none">
+          <div style="font-family:'Fraunces',serif;font-size:30px;font-weight:600;color:var(--teal-deep);letter-spacing:-.01em">
+            <span id="preTotal">0</span> <span id="preTotalLbl" data-i18n="pre_files">files will sync</span>
+          </div>
+          <p id="preMsg" style="color:var(--ink-soft);font-size:13.5px;margin-top:6px"></p>
+          <p id="preIdxHint" class="hint" style="display:none" data-i18n="pre_idx_hint">These files are already recorded locally as synced. If they're missing in ViaVeritas, use “Force full re-sync” to send them all again.</p>
+          <p id="preSkipHint" class="hint" style="display:none;color:var(--err-ink)"></p>
+          <dl class="kv" style="margin-top:18px">
+            <dt data-i18n="pre_k_mode">Sync type</dt><dd id="preMode">—</dd>
+            <dt data-i18n="pre_k_new">New</dt><dd id="preNew">0</dd>
+            <dt data-i18n="pre_k_changed">Changed</dt><dd id="preChanged">0</dd>
+            <dt data-i18n="pre_k_removed">Removed</dt><dd id="preRemoved">0</dd>
+          </dl>
+        </div>
+        <div id="preErr" class="note err" style="display:none;margin-top:0">
+          <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.7"/><path d="M12 8v5M12 16h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <span id="preErrMsg"></span>
+        </div>
+      </div>
+      <div class="row">
+        <button class="btn btn-ghost" id="preBack" data-i18n="back">← Back</button>
+        <div style="flex:1"></div>
+        <button class="btn btn-ghost" id="preResync"><span class="sp"></span><span class="lbl" data-i18n="pre_resync">Force full re-sync</span></button>
+        <button class="btn btn-ghost" id="preRefresh" data-i18n="pre_rescan">Rescan</button>
+        <button class="btn btn-primary" id="preGo"><span class="lbl" data-i18n="btn_pre_continue">Looks good — continue</span></button>
+      </div>
+    </section>
+
+    <!-- STEP 3 — install -->
+    <section class="panel" id="p2">
+      <div class="eyebrow" data-i18n="step3of4">Step 3 of 4</div>
+      <h1 data-i18n-html="p2_h">Install the <em>background service</em>.</h1>
+      <p class="lede" data-i18n="p2_lede">This registers ViaVeritas Bridge to start automatically whenever this computer boots — so sharing keeps working after restarts. It also downloads the file server it needs.</p>
+      <div class="card card-pad">
+        <div class="pkgviz">
+          <div class="pkg-arrow">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v10m0 0 4-4m-4 4-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div class="pkg-box">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M3.3 7.3 12 12l8.7-4.7M12 12v9.2M3.3 7.3 12 2.8l8.7 4.5v9.4L12 21.2 3.3 16.7V7.3Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+        </div>
+        <div style="text-align:center;margin-top:16px">
+          <b style="font-size:15px;display:block" data-i18n="onetime">One-time install</b>
+          <small style="color:var(--ink-soft);font-size:13px" data-i18n="onetime_d">Takes about a minute. Leave this window open.</small>
+        </div>
+      </div>
+      <div class="row">
+        <button class="btn btn-ghost" id="back2" data-i18n="back">← Back</button>
+        <div style="flex:1"></div>
+        <button class="btn btn-ghost" id="bUninstall" style="display:none"><span class="sp"></span><span class="lbl" data-i18n="btn_uninstall">Uninstall service</span></button>
+        <button class="btn btn-primary" id="b2"><span class="sp"></span><span class="lbl" data-i18n="btn_install">Install now</span></button>
+      </div>
+      <div class="log" id="log2"><div class="log-h" id="log2h"><span class="ds"></span><span data-i18n="log2">Installing service</span></div><div class="log-b" id="log2b"></div></div>
+      <div class="log" id="log2u"><div class="log-h" id="log2uh"><span class="ds"></span><span data-i18n="loguninstall">Removing service</span></div><div class="log-b" id="log2ub"></div></div>
+    </section>
+
+    <!-- STEP 4 — pair -->
+    <section class="panel" id="p3">
+      <div class="eyebrow" data-i18n="step4of4">Step 4 of 4</div>
+
+      <!-- already-paired view (shown only when this bridge is linked) -->
+      <div id="p3paired" style="display:none">
+        <h1 data-i18n-html="p3p_h">This bridge is <em>already paired</em>.</h1>
+        <p class="lede" data-i18n="p3p_lede">It's linked to your clinic's ViaVeritas account — there's nothing more to do here unless you want to link it to a different clinic.</p>
+        <div class="card card-pad" style="margin-bottom:18px">
+          <div class="cloudviz">
+            <div class="cv-node">
+              <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="12" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M9 20h6M12 16v4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+            </div>
+            <div class="cv-link"></div>
+            <div class="cv-node cloud">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M7.5 19a4.5 4.5 0 0 1-.6-8.96 5.5 5.5 0 0 1 10.64-1.2A4 4 0 0 1 17.5 19h-10Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M10 13.5l1.6 1.6L14.5 12" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+          </div>
+          <div class="cv-caps"><span data-i18n="cv_pc">This computer</span><span>ViaVeritas</span></div>
+        </div>
+        <div class="note ok">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span data-i18n="note_ok">Paired with ViaVeritas. Re-pairing is only needed to move this bridge to another clinic or after the clinic resets its code.</span>
+        </div>
+        <dl class="kv" style="margin-top:18px">
+          <dt data-i18n="bridgeid">Bridge ID</dt><dd id="pBridge">—</dd>
+          <dt data-i18n="api_name">ViaVeritas API</dt><dd id="pApi">—</dd>
+          <dt data-i18n="reachable">Reachable at</dt><dd id="pUrl">—</dd>
+        </dl>
+        <div class="row">
+          <button class="btn btn-ghost" id="back3p" data-i18n="back">← Back</button>
+          <div style="flex:1"></div>
+          <button class="btn btn-ghost" id="rePair" data-i18n="repair">Re-pair this bridge…</button>
+          <button class="btn btn-primary" id="p3continue"><span class="lbl" data-i18n="continue_ok">Looks good — continue</span></button>
+        </div>
+      </div>
+
+      <!-- pairing form (default; unchanged for the not-paired flow) -->
+      <div id="p3form">
+        <div class="card card-pad" style="margin-bottom:18px">
+          <div class="cloudviz">
+            <div class="cv-node">
+              <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="12" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M9 20h6M12 16v4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+            </div>
+            <div class="cv-link"></div>
+            <div class="cv-node cloud">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M7.5 19a4.5 4.5 0 0 1-.6-8.96 5.5 5.5 0 0 1 10.64-1.2A4 4 0 0 1 17.5 19h-10Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M10 13.5l1.6 1.6L14.5 12" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+          </div>
+          <div class="cv-caps"><span data-i18n="cv_pc">This computer</span><span>ViaVeritas</span></div>
+        </div>
+        <h1 data-i18n-html="p3_h">Enter your <em>pairing code</em>.</h1>
+        <p class="lede" data-i18n="p3_lede">Find the code in your ViaVeritas CRM under clinic settings. This links this bridge to your clinic's account.</p>
+        <div class="card card-pad">
+          <label class="fld" for="code" data-i18n="lbl_code">Pairing code</label>
+          <input type="text" id="code" class="code-in" placeholder="ABCD-1234" autocomplete="off" spellcheck="false" maxlength="32">
+          <details class="adv">
+            <summary><svg class="chev" viewBox="0 0 24 24" width="13" height="13" fill="none"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg> <span data-i18n="adv">Advanced settings</span></summary>
+            <div class="body">
+              <label class="fld" for="apiUrl" data-i18n="lbl_apiurl">ViaVeritas API URL</label>
+              <input type="text" id="apiUrl" placeholder="https://api.viaveritas.app" autocomplete="off" spellcheck="false">
+              <p class="hint" data-i18n="api_hint">Leave this as-is unless ViaVeritas support told you otherwise.</p>
+            </div>
+          </details>
+        </div>
+        <div class="row">
+          <button class="btn btn-ghost" id="back3" data-i18n="back">← Back</button>
+          <div style="flex:1"></div>
+          <button class="btn btn-primary" id="b3" disabled><span class="sp"></span><span class="lbl" data-i18n="btn_pair">Pair &amp; finish</span></button>
+        </div>
+        <div class="log" id="log3"><div class="log-h" id="log3h"><span class="ds"></span><span data-i18n="log3">Pairing with ViaVeritas</span></div><div class="log-b" id="log3b"></div></div>
+      </div>
+    </section>
+
+    <!-- DONE -->
+    <section class="panel" id="pdone">
+      <div class="card">
+        <div class="done-screen">
+          <div class="seal"><svg viewBox="0 0 24 24" fill="none"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <h2 data-i18n="done_h">Your clinic is connected.</h2>
+          <p data-i18n="done_p">ViaVeritas Bridge is running and will keep your files in sync automatically — even after this computer restarts.</p>
+          <dl class="kv">
+            <dt data-i18n="bridgeid">Bridge ID</dt><dd id="dBridge">—</dd>
+            <dt data-i18n="sharing">Sharing</dt><dd id="dData">—</dd>
+            <dt data-i18n="reachable">Reachable at</dt><dd id="dUrl">—</dd>
+          </dl>
+          <p class="hint" data-i18n="done_hint">You can close this window. The service runs on its own from now on.</p>
+          <button class="btn btn-ghost" id="startOver" style="margin-top:18px" data-i18n="startover">↺ Reconfigure / start over</button>
+          <button class="btn btn-ghost" id="dUninstall" style="margin-top:6px"><span class="sp"></span><span class="lbl" data-i18n="btn_uninstall">Uninstall service</span></button>
+          <div class="log" id="logdu" style="text-align:left"><div class="log-h" id="logduh"><span class="ds"></span><span data-i18n="loguninstall">Removing service</span></div><div class="log-b" id="logdub"></div></div>
+        </div>
+      </div>
+    </section>
+  </main>
+  </div>
+</div>
+
+<script>
+const CSRF=document.querySelector('meta[name=csrf]').content;
+const $=s=>document.querySelector(s);
+const api=async(path,body)=>{
+  const r=await fetch(path,{method:body?'POST':'GET',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:body?JSON.stringify(body):undefined});
+  let d={};try{d=await r.json()}catch(e){}
+  if(!r.ok)throw new Error(d.error||('HTTP '+r.status));
+  return d;
+};
+
+/* ---------- i18n ---------- */
+const T={
+  en:{
+    title:"ViaVeritas Bridge · Setup",
+    cv_pc:"This computer",
+    s1t:"Choose folder", s1d:"Files to share",
+    s2t:"Install service", s2d:"Runs on startup",
+    s3t:"Pair with ViaVeritas", s3d:"Enter your code",
+    step1of4:"Step 1 of 4", step2of4:"Step 2 of 4", step3of4:"Step 3 of 4", step4of4:"Step 4 of 4",
+    spre_t:"Preview files", spre_d:"Check what syncs",
+    ppre_h:'Preview what will <em>sync</em>.',
+    ppre_lede:"A quick local scan — no files are uploaded and the ViaVeritas API isn't contacted yet.",
+    pre_scanning:"Scanning your folder…",
+    pre_scanned:"files scanned",
+    pre_files:"files will sync", pre_file_one:"file will sync",
+    pre_k_mode:"Sync type", pre_k_new:"New", pre_k_changed:"Changed", pre_k_removed:"Removed",
+    pre_mode_full:"First full sync", pre_mode_incremental:"Incremental update",
+    pre_mode_none:"Already up to date", pre_mode_skip:"Not ready",
+    pre_none:"Everything is already in sync — nothing to upload right now.",
+    pre_msg_full:"This first sync uploads every file in the folder.",
+    pre_msg_incremental:"Only changes since the last sync will be uploaded.",
+    pre_skip:"Can't preview yet: ",
+    pre_rescan:"Rescan", btn_pre_continue:"Looks good — continue",
+    pre_resync:"Force full re-sync",
+    pre_idx_hint:"These files are already recorded locally as synced. If they're missing in ViaVeritas, use “Force full re-sync” to send them all again.",
+    pre_skipped:"item(s) under the folder could not be read and were skipped — check the folder's permissions/ownership.",
+    p1_h:'Pick the folder you want to <em>share</em>.',
+    p1_lede:"ViaVeritas will keep these files in sync with your clinic's account. Browse to the folder — you can also create a new one.",
+    selected:"Selected:", adv:"Advanced settings",
+    f_bridge:"Bridge API port", ph_bridge:"Auto (6500–7500)",
+    f_scan:"Sync check interval (seconds)", f_log:"Log folder",
+    ph_log:"Default (next to the program)",
+    chk_hidden:"Include hidden files and folders (dotfiles) in the sync",
+    adv_hint:"Leave these as-is unless ViaVeritas support asked you to change them. Empty fields keep the current or automatic value.",
+    btn_newfolder:"＋ New folder here", btn_save:"Save & continue",
+    log1:"Saving configuration",
+    note_tip:"The folder stays on this computer. ViaVeritas only mirrors it so your team can reach the files from the CRM.",
+    p2_h:'Install the <em>background service</em>.',
+    p2_lede:"This registers ViaVeritas Bridge to start automatically whenever this computer boots — so sharing keeps working after restarts. It also downloads the file server it needs.",
+    onetime:"One-time install", onetime_d:"Takes about a minute. Leave this window open.",
+    back:"← Back", btn_install:"Install now", log2:"Installing service",
+    btn_uninstall:"Uninstall service", loguninstall:"Removing service",
+    p3p_h:'This bridge is <em>already paired</em>.',
+    p3p_lede:"It's linked to your clinic's ViaVeritas account — there's nothing more to do here unless you want to link it to a different clinic.",
+    note_ok:"Paired with ViaVeritas. Re-pairing is only needed to move this bridge to another clinic or after the clinic resets its code.",
+    bridgeid:"Bridge ID", api_name:"ViaVeritas API", reachable:"Reachable at",
+    repair:"Re-pair this bridge…", continue_ok:"Looks good — continue",
+    p3_h:'Enter your <em>pairing code</em>.',
+    p3_lede:"Find the code in your ViaVeritas CRM under clinic settings. This links this bridge to your clinic's account.",
+    lbl_code:"Pairing code", lbl_apiurl:"ViaVeritas API URL",
+    api_hint:"Leave this as-is unless ViaVeritas support told you otherwise.",
+    btn_pair:"Pair & finish", log3:"Pairing with ViaVeritas",
+    done_h:"Your clinic is connected.",
+    done_p:"ViaVeritas Bridge is running and will keep your files in sync automatically — even after this computer restarts.",
+    sharing:"Sharing",
+    done_hint:"You can close this window. The service runs on its own from now on.",
+    startover:"↺ Reconfigure / start over",
+    js_badfolder:"Could not open that folder.",
+    js_nosub:"No sub-folders here. Use the button below to share this folder, or create a new one.",
+    js_open:"open ›",
+    js_newfolderprompt:"Name for the new folder (created inside the current folder):",
+    js_mkdirfail:"Could not create folder: ",
+    js_waiting:"Waiting…", js_done:"Done.",
+    js_sharecont:"Share this folder & continue", js_readonly:"Folder is read-only",
+    js_uninstall_confirm:"Remove the ViaVeritas Bridge background service from this computer? File sharing will stop until you install it again."
+  },
+  el:{
+    title:"ViaVeritas Bridge · Ρύθμιση",
+    cv_pc:"Αυτός ο υπολογιστής",
+    s1t:"Επιλογή φακέλου", s1d:"Αρχεία προς κοινή χρήση",
+    s2t:"Εγκατάσταση υπηρεσίας", s2d:"Εκκινεί κατά την έναρξη",
+    s3t:"Σύνδεση με το ViaVeritas", s3d:"Εισαγωγή κωδικού",
+    step1of4:"Βήμα 1 από 4", step2of4:"Βήμα 2 από 4", step3of4:"Βήμα 3 από 4", step4of4:"Βήμα 4 από 4",
+    spre_t:"Προεπισκόπηση αρχείων", spre_d:"Δείτε τι θα συγχρονιστεί",
+    ppre_h:'Προεπισκόπηση του τι θα <em>συγχρονιστεί</em>.',
+    ppre_lede:"Μια γρήγορη τοπική σάρωση — δεν ανεβαίνει κανένα αρχείο και δεν επικοινωνεί ακόμη με το ViaVeritas API.",
+    pre_scanning:"Σάρωση του φακέλου σας…",
+    pre_scanned:"αρχεία σαρώθηκαν",
+    pre_files:"αρχεία θα συγχρονιστούν", pre_file_one:"αρχείο θα συγχρονιστεί",
+    pre_k_mode:"Τύπος συγχρονισμού", pre_k_new:"Νέα", pre_k_changed:"Τροποποιημένα", pre_k_removed:"Διαγραμμένα",
+    pre_mode_full:"Πρώτος πλήρης συγχρονισμός", pre_mode_incremental:"Αυξητική ενημέρωση",
+    pre_mode_none:"Ήδη ενημερωμένο", pre_mode_skip:"Μη έτοιμο",
+    pre_none:"Όλα είναι ήδη συγχρονισμένα — δεν υπάρχει κάτι για ανέβασμα τώρα.",
+    pre_msg_full:"Αυτός ο πρώτος συγχρονισμός ανεβάζει κάθε αρχείο του φακέλου.",
+    pre_msg_incremental:"Θα ανέβουν μόνο οι αλλαγές από τον τελευταίο συγχρονισμό.",
+    pre_skip:"Δεν είναι δυνατή η προεπισκόπηση ακόμη: ",
+    pre_rescan:"Επανασάρωση", btn_pre_continue:"Όλα καλά — συνέχεια",
+    pre_resync:"Επιβολή πλήρους επανασυγχρονισμού",
+    pre_idx_hint:"Αυτά τα αρχεία είναι ήδη καταγεγραμμένα τοπικά ως συγχρονισμένα. Αν λείπουν από το ViaVeritas, χρησιμοποιήστε «Επιβολή πλήρους επανασυγχρονισμού» για να σταλούν ξανά όλα.",
+    pre_skipped:"στοιχείο/α κάτω από τον φάκελο δεν ήταν αναγνώσιμα και παραλείφθηκαν — ελέγξτε δικαιώματα/ιδιοκτησία του φακέλου.",
+    p1_h:'Επιλέξτε ποιον φάκελο θέλετε να <em>μοιραστείτε</em>.',
+    p1_lede:"Το ViaVeritas θα διατηρεί αυτά τα αρχεία συγχρονισμένα με τον λογαριασμό της κλινικής σας. Περιηγηθείτε στον φάκελο — μπορείτε επίσης να δημιουργήσετε νέον.",
+    selected:"Επιλεγμένο:", adv:"Σύνθετες ρυθμίσεις",
+    f_bridge:"Θύρα API της γέφυρας", ph_bridge:"Αυτόματα (6500–7500)",
+    f_scan:"Διάστημα ελέγχου συγχρονισμού (δευτερόλεπτα)", f_log:"Φάκελος καταγραφών",
+    ph_log:"Προεπιλογή (δίπλα στο πρόγραμμα)",
+    chk_hidden:"Συμπερίληψη κρυφών αρχείων και φακέλων στον συγχρονισμό",
+    adv_hint:"Αφήστε τα ως έχουν εκτός αν σας ζήτησε αλλαγή η υποστήριξη ViaVeritas. Τα κενά πεδία διατηρούν την τρέχουσα ή αυτόματη τιμή.",
+    btn_newfolder:"＋ Νέος φάκελος εδώ", btn_save:"Αποθήκευση & συνέχεια",
+    log1:"Αποθήκευση ρυθμίσεων",
+    note_tip:"Ο φάκελος παραμένει σε αυτόν τον υπολογιστή. Το ViaVeritas απλώς τον αντικατοπτρίζει ώστε η ομάδα σας να βλέπει τα αρχεία από το CRM.",
+    p2_h:'Εγκαταστήστε την <em>υπηρεσία παρασκηνίου</em>.',
+    p2_lede:"Αυτό καταχωρεί το ViaVeritas Bridge ώστε να εκκινεί αυτόματα κάθε φορά που ανοίγει ο υπολογιστής — έτσι η κοινή χρήση συνεχίζει να λειτουργεί μετά από επανεκκινήσεις. Κατεβάζει επίσης τον διακομιστή αρχείων που χρειάζεται.",
+    onetime:"Εγκατάσταση μία φορά", onetime_d:"Διαρκεί περίπου ένα λεπτό. Αφήστε αυτό το παράθυρο ανοιχτό.",
+    back:"← Πίσω", btn_install:"Εγκατάσταση τώρα", log2:"Εγκατάσταση υπηρεσίας",
+    btn_uninstall:"Κατάργηση υπηρεσίας", loguninstall:"Κατάργηση υπηρεσίας",
+    p3p_h:'Αυτή η γέφυρα είναι <em>ήδη συνδεδεμένη</em>.',
+    p3p_lede:"Είναι συνδεδεμένη με τον λογαριασμό ViaVeritas της κλινικής σας — δεν χρειάζεται κάτι άλλο εδώ, εκτός αν θέλετε να τη συνδέσετε με διαφορετική κλινική.",
+    note_ok:"Συνδεδεμένη με το ViaVeritas. Η επανασύνδεση χρειάζεται μόνο για μεταφορά σε άλλη κλινική ή αφού η κλινική επαναφέρει τον κωδικό της.",
+    bridgeid:"Αναγνωριστικό γέφυρας", api_name:"API ViaVeritas", reachable:"Προσβάσιμο στο",
+    repair:"Επανασύνδεση αυτής της γέφυρας…", continue_ok:"Όλα καλά — συνέχεια",
+    p3_h:'Εισαγάγετε τον <em>κωδικό σύνδεσης</em>.',
+    p3_lede:"Βρείτε τον κωδικό στο ViaVeritas CRM, στις ρυθμίσεις κλινικής. Αυτό συνδέει τη γέφυρα με τον λογαριασμό της κλινικής σας.",
+    lbl_code:"Κωδικός σύνδεσης", lbl_apiurl:"URL του API ViaVeritas",
+    api_hint:"Αφήστε το ως έχει εκτός αν σας ενημέρωσε διαφορετικά η υποστήριξη ViaVeritas.",
+    btn_pair:"Σύνδεση & ολοκλήρωση", log3:"Σύνδεση με το ViaVeritas",
+    done_h:"Η κλινική σας συνδέθηκε.",
+    done_p:"Το ViaVeritas Bridge εκτελείται και θα διατηρεί τα αρχεία σας συγχρονισμένα αυτόματα — ακόμη και μετά από επανεκκίνηση του υπολογιστή.",
+    sharing:"Κοινή χρήση",
+    done_hint:"Μπορείτε να κλείσετε αυτό το παράθυρο. Η υπηρεσία εκτελείται μόνη της από εδώ και πέρα.",
+    startover:"↺ Επαναρύθμιση / από την αρχή",
+    js_badfolder:"Δεν ήταν δυνατό το άνοιγμα αυτού του φακέλου.",
+    js_nosub:"Δεν υπάρχουν υποφάκελοι εδώ. Χρησιμοποιήστε το κουμπί πιο κάτω για κοινή χρήση αυτού του φακέλου ή δημιουργήστε νέον.",
+    js_open:"άνοιγμα ›",
+    js_newfolderprompt:"Όνομα νέου φακέλου (δημιουργείται μέσα στον τρέχοντα φάκελο):",
+    js_mkdirfail:"Δεν ήταν δυνατή η δημιουργία φακέλου: ",
+    js_waiting:"Αναμονή…", js_done:"Έγινε.",
+    js_sharecont:"Κοινή χρήση φακέλου & συνέχεια", js_readonly:"Ο φάκελος είναι μόνο για ανάγνωση",
+    js_uninstall_confirm:"Να καταργηθεί η υπηρεσία παρασκηνίου ViaVeritas Bridge από αυτόν τον υπολογιστή; Η κοινή χρήση αρχείων θα σταματήσει μέχρι να την εγκαταστήσετε ξανά."
+  }
+};
+let LANG=localStorage.getItem('bridgeLang')||'en';
+if(!T[LANG])LANG='en';
+const t=k=>(T[LANG]&&T[LANG][k])!=null?T[LANG][k]:(T.en[k]!=null?T.en[k]:k);
+
+function applyLang(){
+  document.documentElement.lang=LANG;
+  document.title=t('title');
+  document.querySelectorAll('[data-i18n]').forEach(e=>{ e.textContent=t(e.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-html]').forEach(e=>{ e.innerHTML=t(e.dataset.i18nHtml); });
+  document.querySelectorAll('[data-i18n-ph]').forEach(e=>{ e.placeholder=t(e.dataset.i18nPh); });
+  document.querySelectorAll('.log-b').forEach(e=>e.setAttribute('data-empty',t('js_waiting')));
+  document.querySelectorAll('#langbar button').forEach(b=>b.classList.toggle('active',b.dataset.lang===LANG));
+  updateB1Label();
+}
+document.querySelectorAll('#langbar button').forEach(b=>{
+  b.onclick=()=>{ LANG=b.dataset.lang; localStorage.setItem('bridgeLang',LANG); applyLang(); };
+});
+
+let current=1, pickedPath='', b1ro=false;
+
+function updateB1Label(){
+  const lbl=$('#b1 .lbl'); if(!lbl)return;
+  if($('#picked').style.display==='none'||$('#picked').style.display==='') {
+    if(!pickedPath){ lbl.textContent=t('btn_save'); return; }
+  }
+  if(pickedPath) lbl.textContent=b1ro?t('js_readonly'):t('js_sharecont');
+  else lbl.textContent=t('btn_save');
+}
+
+// step number → panel id. 1 folder · 2 preview · 3 install · 4 pair · >4 done.
+const PANEL={1:'#p1',2:'#ppre',3:'#p2',4:'#p3'};
+function setStep(n){
+  current=n;
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('show'));
+  $(n>4?'#pdone':PANEL[n]).classList.add('show');
+  document.querySelectorAll('.step').forEach(li=>{
+    const s=+li.dataset.s;
+    li.classList.toggle('active',s===n);
+    li.classList.toggle('done',s<n||n>4);
+  });
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+/* clickable step rail — free navigation so the operator can go back and
+   reconfigure from any step (each step maps to an idempotent command). */
+document.querySelectorAll('#rail .step').forEach(li=>{
+  li.onclick=()=>{ const n=+li.dataset.s; setStep(n);
+    if(n===1){loadConfigForm();browse(pickedPath||'');}
+    if(n===2){loadPreview();}
+    if(n===4){renderStep3();} };
+});
+
+/* prefill the configure form (folder + advanced) from current config */
+async function loadConfigForm(){
+  let s={};
+  try{ s=await api('/api/status'); }catch(e){ return; }
+  const set=(id,v)=>{ const el=$(id); if(el&&v!=null&&v!==0&&v!=='')el.value=v; };
+  set('#cfgBridgePort',s.bridgePort);
+  set('#cfgScanInterval',s.scanInterval);
+  set('#cfgLogDir',s.logDir);
+  $('#cfgHidden').checked=!!s.includeHidden;
+}
+
+/* ---------- live log ---------- */
+function logRun(idx,btn,fn){
+  const box=$('#log'+idx), head=$('#log'+idx+'h'), body=$('#log'+idx+'b');
+  box.classList.add('show');head.className='log-h';body.textContent='';
+  btn.classList.add('loading');btn.disabled=true;
+  return fn(line=>{body.textContent+=line+'\n';body.scrollTop=body.scrollHeight;})
+    .then(out=>{ if(out!=null)body.textContent=out.trim()||t('js_done'); head.classList.add('ok'); return true; })
+    .catch(e=>{ body.textContent=(body.textContent+'\n'+(e.message||e)).trim(); head.classList.add('err'); return false; })
+    .finally(()=>{ btn.classList.remove('loading'); });
+}
+
+/* ---------- step 1: folder browser ---------- */
+async function browse(path){
+  const flist=$('#flist'),crumbs=$('#crumbs');
+  flist.innerHTML='<div style="padding:18px 22px"><div class="skel" style="width:60%"></div><div class="skel" style="width:42%;margin-top:12px"></div><div class="skel" style="width:52%;margin-top:12px"></div></div>';
+  let d;
+  try{ d=await api('/api/browse?path='+encodeURIComponent(path||'')); }
+  catch(e){ flist.innerHTML='<div class="fempty">'+t('js_badfolder')+'<br>'+(e.message||'')+'</div>'; return; }
+  // breadcrumbs
+  crumbs.innerHTML='';
+  d.crumbs.forEach((c,i)=>{
+    const b=document.createElement('button');b.textContent=c.label||'/';
+    b.onclick=()=>browse(c.path);crumbs.appendChild(b);
+    if(i<d.crumbs.length-1){const s=document.createElement('span');s.className='sep';s.textContent='›';crumbs.appendChild(s);}
+  });
+  // entries
+  flist.innerHTML='';
+  if(!d.dirs.length){flist.innerHTML='<div class="fempty">'+t('js_nosub')+'</div>';}
+  d.dirs.forEach(dir=>{
+    const row=document.createElement('button');row.className='frow';
+    row.innerHTML='<svg viewBox="0 0 24 24" fill="none"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" stroke="currentColor" stroke-width="1.7"/></svg><span></span><small>'+t('js_open')+'</small>';
+    row.querySelector('span').textContent=dir.name;
+    row.onclick=()=>browse(dir.path);
+    flist.appendChild(row);
+  });
+  // current dir becomes selectable target
+  pickedPath=d.path;
+  $('#picked').style.display='flex';
+  $('#pickedPath').textContent=d.path;
+  b1ro=!d.writable;
+  $('#b1').disabled=!d.writable;
+  updateB1Label();
+}
+
+$('#newFolderBtn').onclick=async()=>{
+  const name=prompt(t('js_newfolderprompt'));
+  if(!name)return;
+  try{ const r=await api('/api/mkdir',{parent:pickedPath,name}); browse(r.path); }
+  catch(e){ alert(t('js_mkdirfail')+(e.message||e)); }
+};
+
+$('#b1').onclick=async()=>{
+  const num=id=>{ const v=parseInt(($(id).value||'').trim(),10); return Number.isFinite(v)&&v>0?v:0; };
+  const str=id=>($(id).value||'').trim();
+  const advTouched=$('#cfgAdv').open; // only override include/log-dir if opened
+  const body={
+    dataRoot:pickedPath,
+    bridgePort:num('#cfgBridgePort'),
+    scanInterval:num('#cfgScanInterval')
+  };
+  if(advTouched){
+    body.includeHidden=$('#cfgHidden').checked;
+    const ld=str('#cfgLogDir'); if(ld)body.logDir=ld;
+  }
+  const ok=await logRun(1,$('#b1'),async push=>{
+    const r=await api('/api/configure',body);
+    push(r.output||'');return r.output;
+  });
+  if(ok)setTimeout(()=>{setStep(2);loadPreview();},650);
+};
+
+/* ---------- step 2: preview ---------- */
+// Local-only scan (no API contact); shows how many files the first sync
+// would upload. Reuses the `preview` command's logic via /api/preview.
+async function loadPreview(){
+  const scan=$('#preScan'),bdy=$('#preBody'),err=$('#preErr');
+  scan.style.display='block'; bdy.style.display='none'; err.style.display='none';
+  $('#preCount').textContent='';
+  // /api/preview streams newline-delimited JSON: {"scanned":N} progress lines
+  // then a final {"result":{…}} (or {"error":"…"}). Read the body as a stream
+  // so the file counter ticks live — the api() helper only does a single
+  // r.json() and can't stream.
+  let p=null, scanErr=null;
+  try{
+    const r=await fetch('/api/preview',{headers:{'X-CSRF':CSRF}});
+    if(!r.ok){ let d={}; try{d=await r.json()}catch(e){} throw new Error(d.error||('HTTP '+r.status)); }
+    const reader=r.body.getReader(), dec=new TextDecoder();
+    let buf='';
+    for(;;){
+      const {value,done}=await reader.read();
+      if(done) break;
+      buf+=dec.decode(value,{stream:true});
+      let nl;
+      while((nl=buf.indexOf('\n'))>=0){
+        const line=buf.slice(0,nl).trim(); buf=buf.slice(nl+1);
+        if(!line) continue;
+        let msg; try{ msg=JSON.parse(line); }catch(e){ continue; }
+        if(msg.scanned!=null) $('#preCount').textContent=msg.scanned.toLocaleString()+' '+t('pre_scanned');
+        else if(msg.result) p=msg.result;
+        else if(msg.error) scanErr=msg.error;
+      }
+    }
+  }catch(e){ scanErr=e.message||String(e); }
+  scan.style.display='none';
+  if(scanErr||!p){
+    err.style.display='flex';
+    $('#preErrMsg').textContent=t('pre_skip')+(scanErr||'incomplete response');
+    return;
+  }
+  if(p.mode==='skip'){
+    err.style.display='flex';
+    $('#preErrMsg').textContent=t('pre_skip')+(p.reason||'');
+    return;
+  }
+  bdy.style.display='block';
+  const total=p.total||0;
+  $('#preTotal').textContent=total;
+  $('#preTotalLbl').textContent=total===1?t('pre_file_one'):t('pre_files');
+  const modeMap={full:'pre_mode_full',incremental:'pre_mode_incremental',none:'pre_mode_none',skip:'pre_mode_skip'};
+  $('#preMode').textContent=t(modeMap[p.mode]||'pre_mode_none');
+  $('#preNew').textContent=p.created||0;
+  $('#preChanged').textContent=p.modified||0;
+  $('#preRemoved').textContent=p.deleted||0;
+  $('#preMsg').textContent = total===0 ? t('pre_none')
+    : (p.mode==='full'?t('pre_msg_full'):t('pre_msg_incremental'));
+  // "none" with files already indexed: explain why nothing uploads and point
+  // at the resync button (this is the exact "files not in my DB" case).
+  $('#preIdxHint').style.display = (p.mode==='none' && (p.indexed||0)>0) ? 'block' : 'none';
+  const sk=$('#preSkipHint');
+  if((p.skipped||0)>0){ sk.style.display='block'; sk.textContent=p.skipped+' '+t('pre_skipped'); }
+  else sk.style.display='none';
+}
+$('#preBack').onclick=()=>setStep(1);
+$('#preRefresh').onclick=()=>loadPreview();
+$('#preResync').onclick=async()=>{
+  const b=$('#preResync'); b.classList.add('loading'); b.disabled=true;
+  try{ await api('/api/resync',{}); }catch(e){ alert(t('pre_skip')+(e.message||e)); }
+  b.classList.remove('loading'); b.disabled=false;
+  await loadPreview();
+};
+$('#preGo').onclick=()=>setStep(3);
+
+/* ---------- step 3: install ---------- */
+$('#back2').onclick=()=>setStep(2);
+$('#b2').onclick=async()=>{
+  const ok=await logRun(2,$('#b2'),async push=>{
+    const r=await api('/api/install',{});push(r.output||'');return r.output;
+  });
+  if(ok){ $('#bUninstall').style.display=''; setTimeout(()=>setStep(4),650); }
+};
+
+/* uninstall — exposed on the install step (once installed) and the done
+   screen. Reuses the `uninstall` subcommand via /api/uninstall. */
+async function doUninstall(idx,btn){
+  if(!confirm(t('js_uninstall_confirm')))return false;
+  const ok=await logRun(idx,btn,async push=>{
+    const r=await api('/api/uninstall',{});push(r.output||'');return r.output;
+  });
+  if(ok){ $('#bUninstall').style.display='none'; $('#b2').disabled=false; }
+  else btn.disabled=false; // logRun leaves it disabled; allow a retry
+  return ok;
+}
+$('#bUninstall').onclick=()=>doUninstall('2u',$('#bUninstall'));
+$('#dUninstall').onclick=async()=>{
+  // The service is gone — the "done" state no longer holds; drop back to
+  // the install step so the operator can reinstall.
+  if(await doUninstall('du',$('#dUninstall')))setTimeout(()=>setStep(3),900);
+};
+
+/* ---------- step 4: pair ---------- */
+// Show the "already paired" view or the code form depending on current
+// status. Viewing does not touch config; only an explicit re-pair submit
+// (#b3 → /api/pair) can, and runPair only saves on a successful claim.
+async function renderStep3(){
+  let s={};
+  try{ s=await api('/api/status'); }catch(e){}
+  if(s.paired){
+    $('#pBridge').textContent=s.bridgeId||'—';
+    $('#pApi').textContent=s.apiBaseUrl||s.lanUrl||'—';
+    const u=s.lanUrl||'';
+    $('#pUrl').innerHTML=u?'<a href="'+u+'" target="_blank" rel="noopener">'+u+'</a>':'—';
+    $('#p3paired').style.display='';
+    $('#p3form').style.display='none';
+  }else{
+    $('#p3paired').style.display='none';
+    $('#p3form').style.display='';
+  }
+}
+$('#back3p').onclick=()=>setStep(3);
+$('#p3continue').onclick=async()=>{ await finish(); setStep(5); };
+$('#rePair').onclick=()=>{
+  $('#p3paired').style.display='none';
+  $('#p3form').style.display='';
+  const c=$('#code'); c.value=''; $('#b3').disabled=true; c.focus();
+};
+$('#back3').onclick=()=>setStep(3);
+const codeEl=$('#code');
+codeEl.addEventListener('input',()=>{ $('#b3').disabled=codeEl.value.trim().length<3; });
+codeEl.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!$('#b3').disabled)$('#b3').click(); });
+$('#b3').onclick=async()=>{
+  const code=codeEl.value.trim();
+  const apiUrl=$('#apiUrl').value.trim()||$('#apiUrl').placeholder;
+  const ok=await logRun(3,$('#b3'),async push=>{
+    const r=await api('/api/pair',{code,apiUrl});push(r.output||'');return r.output;
+  });
+  if(ok){ await finish(); setTimeout(()=>setStep(5),650); }
+};
+
+async function finish(){
+  try{
+    const s=await api('/api/status');
+    $('#dBridge').textContent=s.bridgeId||'—';
+    $('#dData').textContent=s.dataRoot||'—';
+    const u=s.lanUrl||'';
+    $('#dUrl').innerHTML=u?'<a href="'+u+'" target="_blank" rel="noopener">'+u+'</a>':'—';
+  }catch(e){}
+}
+
+$('#startOver').onclick=async()=>{ setStep(1); await loadConfigForm(); await browse(pickedPath||''); };
+
+/* keep-alive: lets the local setup server shut itself down when this page
+   is closed (prompt close via the beacon; the server's idle watchdog is the
+   backstop if the beacon is missed). /api/ping & /api/bye are loopback-only,
+   no CSRF — sendBeacon can't set headers. */
+fetch('/api/ping',{method:'POST'}).catch(()=>{});
+setInterval(()=>{ fetch('/api/ping',{method:'POST'}).catch(()=>{}); },5000);
+addEventListener('pagehide',()=>{ try{ navigator.sendBeacon('/api/bye'); }catch(e){} });
+
+/* ---------- boot ---------- */
+(async function init(){
+  applyLang();
+  let s={};
+  try{ s=await api('/api/status'); }catch(e){}
+  if(s.apiBaseUrl)$('#apiUrl').placeholder=s.apiBaseUrl;
+  $('#bUninstall').style.display=s.serviceInstalled?'':'none';
+  await loadConfigForm();
+  // resume at the right step if partially configured:
+  // 1 folder · 2 preview · 4 pair (install (3) is skipped on resume once a
+  // bridge port is configured) · >4 done.
+  let start=1;
+  if(s.dataRoot)start=2;
+  if(s.serviceInstalled)start=4;
+  if(s.paired){ await finish(); setStep(5); }
+  else {
+    setStep(start);
+    await browse(s.dataRoot||s.suggestedRoot||'');
+    if(start===2) loadPreview();
+    if(start===4) renderStep3();
+  }
+})();
+</script>
+</body>
+</html>

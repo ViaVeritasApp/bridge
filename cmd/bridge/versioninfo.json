@@ -1,0 +1,22 @@
+{
+  "FixedFileInfo": {
+    "FileVersion": { "Major": 0, "Minor": 0, "Patch": 0, "Build": 0 },
+    "ProductVersion": { "Major": 0, "Minor": 0, "Patch": 0, "Build": 0 },
+    "FileFlagsMask": "3f",
+    "FileFlags": "00",
+    "FileOS": "040004",
+    "FileType": "01",
+    "FileSubType": "00"
+  },
+  "StringFileInfo": {
+    "CompanyName": "domain.com",
+    "FileDescription": "domain.com Bridge — serves clinic files to the domain.com CRM",
+    "InternalName": "bridge",
+    "LegalCopyright": "domain.com",
+    "OriginalFilename": "bridge.exe",
+    "ProductName": "domain.com Bridge"
+  },
+  "VarFileInfo": {
+    "Translation": { "LangID": "0409", "CharsetID": "04B0" }
+  }
+}
