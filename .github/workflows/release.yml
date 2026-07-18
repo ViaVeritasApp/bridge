@@ -1,0 +1,95 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { goos: darwin,  goarch: amd64 }
+          - { goos: darwin,  goarch: arm64 }
+          - { goos: linux,   goarch: amd64 }
+          - { goos: linux,   goarch: arm64 }
+          - { goos: linux,   goarch: arm,   goarm: '7' }
+          - { goos: windows, goarch: amd64 }
+          - { goos: windows, goarch: arm64 }
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          GOARM: ${{ matrix.goarm }}
+          CGO_ENABLED: '0'
+        run: |
+          set -euo pipefail
+          VER=$(make print-version)
+          ARCH='${{ matrix.goarch }}'
+          [ "$ARCH" = arm ] && ARCH=armv7
+          NAME="bridge_${VER}_${{ matrix.goos }}_${ARCH}"
+          BIN=bridge
+          [ "${{ matrix.goos }}" = windows ] && BIN=bridge.exe
+          mkdir -p dist
+          go build -trimpath \
+            -ldflags "-s -w -X bridge/internal/config.DefaultVersion=${VER}" \
+            -o "dist/${BIN}" ./cmd/bridge
+          cd dist
+          if [ "${{ matrix.goos }}" = windows ]; then
+            grep -aq requireAdministrator "${BIN}" \
+              || { echo "::error::windows manifest not embedded in ${BIN}"; exit 1; }
+            zip "${NAME}.zip" "${BIN}"
+            ARTIFACT="${NAME}.zip"
+          elif [ "${{ matrix.goos }}" = darwin ]; then
+            tar -czf "${NAME}.tar.gz" "${BIN}"
+            ARTIFACT="${NAME}.tar.gz"
+          else
+            cp "${GITHUB_WORKSPACE}/packaging/linux/bridge.desktop" .
+            tar -czf "${NAME}.tar.gz" "${BIN}" bridge.desktop
+            rm -f bridge.desktop
+            ARTIFACT="${NAME}.tar.gz"
+          fi
+          sha256sum "${ARTIFACT}" > "${ARTIFACT}.sha256"
+          rm -f "${BIN}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/*
+          retention-days: 7
+
+  release:
+    needs: build
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Combine checksums
+        run: cat dist/*.sha256 > dist/SHA256SUMS.txt
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/SHA256SUMS.txt
+          generate_release_notes: true
+          fail_on_unmatched_files: true
