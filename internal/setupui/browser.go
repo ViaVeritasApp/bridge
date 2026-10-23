@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"bridge/internal/config"
 	"bridge/internal/platform"
 )
 
@@ -56,8 +57,12 @@ func (s *srv) handleBrowse(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"path":     abs,
 		"writable": dirWritable(abs),
-		"crumbs":   platform.Current().Breadcrumbs(abs),
-		"dirs":     dirs,
+		// macOS keeps the service out of it until the bridge has Full Disk Access.
+		"protected": platform.Protected(abs),
+		// Why it can't be synced, if it can't: it overlaps a synced folder, or the bridge's own.
+		"problem": folderProblem(abs),
+		"crumbs":  platform.Current().Breadcrumbs(abs),
+		"dirs":    dirs,
 	})
 }
 
@@ -72,4 +77,12 @@ func dirWritable(dir string) bool {
 	f.Close()
 	_ = os.Remove(name)
 	return true
+}
+
+func folderProblem(path string) string {
+	cfg, _ := config.Load()
+	if _, err := cfg.CheckFolder(path); err != nil {
+		return err.Error()
+	}
+	return ""
 }

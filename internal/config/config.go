@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"time"
 
@@ -15,14 +17,19 @@ import (
 )
 
 type Config struct {
-	APIBaseURL     string   `json:"api_base_url"`
-	BridgeID       string   `json:"bridge_id,omitempty"`
-	OrganizationID string   `json:"organization_id,omitempty"`
-	ClientID       string   `json:"client_id,omitempty"`
-	ClientSecret   string   `json:"client_secret,omitempty"`
-	AllowedOrigin  []string `json:"allowed_origin,omitempty"`
-	DataRoot       string   `json:"data_root"`
-	Version        string   `json:"version"`
+	APIBaseURL     string `json:"api_base_url"`
+	BridgeID       string `json:"bridge_id,omitempty"`
+	OrganizationID string `json:"organization_id,omitempty"`
+	ClientID       string `json:"client_id,omitempty"`
+	ClientSecret   string `json:"client_secret,omitempty"`
+	// SigningKey checks the download links the API signs for this bridge's files.
+	SigningKey    string   `json:"signing_key,omitempty"`
+	AllowedOrigin []string `json:"allowed_origin,omitempty"`
+	// Folders are what it syncs, each a folder of its own in the bridge's folder in Files.
+	Folders []Folder `json:"folders,omitempty"`
+	// LegacyDataRoot is the one folder of a bridge from before Folders, read into them by Load.
+	LegacyDataRoot string `json:"data_root,omitempty"`
+	Version        string `json:"version"`
 
 	// TLSDomain is the parent zone the API assigns at claim time (e.g.
 	// "lan.viaveritas.app"); with Subdomain it locates the per-bridge wildcard
@@ -35,9 +42,10 @@ type Config struct {
 	ScanIntervalSeconds int  `json:"scan_interval_seconds,omitempty"`
 	IncludeHidden       bool `json:"include_hidden,omitempty"`
 
-	// SocketLogs streams the service log to ViaVeritas. Defaults true; no
-	// omitempty so an explicit false survives a save/reload round-trip instead
-	// of being dropped and re-defaulting to true.
+	// SocketLogs streams the service log to ViaVeritas over the socket the
+	// bridge keeps open for the API's commands. Defaults true; no omitempty so
+	// an explicit false survives a save/reload round-trip instead of being
+	// dropped and re-defaulting to true.
 	SocketLogs bool `json:"socket_logs"`
 
 	// BridgePort is the port the single bridge HTTP listener binds (all file
@@ -46,7 +54,7 @@ type Config struct {
 	BridgePort int `json:"bridge_port,omitempty"`
 
 	// LogDirectory overrides where the log file is written. Empty means the
-	// default ("logs" next to the executable). Read via LogDir().
+	// default ("logs" in Dir()). Read via LogDir().
 	LogDirectory string `json:"log_dir,omitempty"`
 
 	LastHeartbeatAt string `json:"last_heartbeat_at,omitempty"`
@@ -66,7 +74,7 @@ func (c Config) ScanInterval() time.Duration {
 
 // DefaultVersion is the build version, overridable at link time via
 // -ldflags "-X bridge/internal/config.DefaultVersion=<tag>".
-var DefaultVersion = "0.0.7"
+var DefaultVersion = "0.1.0"
 
 func Defaults() Config {
 	return Config{
@@ -84,9 +92,37 @@ var customConfigPath string
 // no arguments and never calls this, so it always uses the default location.
 func SetPath(p string) { customConfigPath = p }
 
-// exeDir is the directory of the running executable, resolving symlinks so an
+// InstallDir is where `install` puts the program and where the bridge keeps
+// its state (config.json, index.txt, logs/, tls/), whichever copy of the
+// program runs: a copy unpacked anywhere else finds the same, paired bridge.
+func InstallDir() string {
+	if installDirOverride != "" {
+		return installDirOverride
+	}
+	if runtime.GOOS == "windows" {
+		return `C:\opt\viaveritas\bridge`
+	}
+	return "/opt/viaveritas/bridge"
+}
+
+// installDirOverride stands in for InstallDir in tests.
+var installDirOverride string
+
+// SetInstallDir points InstallDir elsewhere, for tests; "" restores it.
+func SetInstallDir(dir string) { installDirOverride = dir }
+
+// InstalledBinary is the program the service runs.
+func InstalledBinary() string {
+	name := "bridge"
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	return filepath.Join(InstallDir(), name)
+}
+
+// ExeDir is the directory of the running executable, resolving symlinks so an
 // installed/symlinked binary points at its real location. Falls back to CWD, then ".".
-func exeDir() string {
+func ExeDir() string {
 	exe, err := os.Executable()
 	if err != nil || exe == "" {
 		if wd, werr := os.Getwd(); werr == nil {
@@ -100,13 +136,33 @@ func exeDir() string {
 	return filepath.Dir(exe)
 }
 
+// present is true for a file that exists, readable or not.
+func present(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil || !errors.Is(err, fs.ErrNotExist)
+}
+
+// stateDir is the installation's, unless only the folder beside the program
+// holds a config: a bridge set up before installs copied themselves, until
+// `install` moves it.
+func stateDir() string {
+	install := InstallDir()
+	if present(filepath.Join(install, "config.json")) {
+		return install
+	}
+	if exe := ExeDir(); present(filepath.Join(exe, "config.json")) {
+		return exe
+	}
+	return install
+}
+
 // Path is the config file location: the --config override, else config.json
-// next to the executable.
+// in the bridge's state directory.
 func Path() string {
 	if customConfigPath != "" {
 		return customConfigPath
 	}
-	return filepath.Join(exeDir(), "config.json")
+	return filepath.Join(stateDir(), "config.json")
 }
 
 // Dir is the directory containing the config file (also where index.txt and other state live).
@@ -118,26 +174,12 @@ func (c Config) LogDir() string {
 	if c.LogDirectory != "" {
 		return c.LogDirectory
 	}
-	return filepath.Join(exeDir(), "logs")
+	return filepath.Join(Dir(), "logs")
 }
 
 // LogFile is the service log path, shared by the writer, `status`, and `logs`.
 func (c Config) LogFile() string {
 	return filepath.Join(c.LogDir(), "bridge.log")
-}
-
-// DataDir is the resolved data root. A relative DataRoot is taken relative to
-// the executable's directory, NOT the process CWD: services start with CWD "/"
-// (read-only on macOS), so "./data" would resolve to an unwritable "/data".
-// Empty stays empty so callers can detect "no data root configured".
-func (c Config) DataDir() string {
-	if c.DataRoot == "" {
-		return ""
-	}
-	if filepath.IsAbs(c.DataRoot) {
-		return filepath.Clean(c.DataRoot)
-	}
-	return filepath.Join(exeDir(), c.DataRoot)
 }
 
 // TLSEnabled reports whether the bridge should serve HTTPS: both TLS fields set
@@ -174,6 +216,18 @@ func Load() (Config, error) {
 	if err := json.Unmarshal(b, &cfg); err != nil {
 		return cfg, fmt.Errorf("invalid config: %w", err)
 	}
+	// The version is the running build's: config.json keeps whichever binary
+	// saved it last, and an upgrade only replaces the binary.
+	cfg.Version = DefaultVersion
+	if len(cfg.Folders) == 0 && cfg.LegacyDataRoot != "" {
+		root := cfg.LegacyDataRoot
+		if !filepath.IsAbs(root) {
+			root = filepath.Join(Dir(), root)
+		}
+		root = filepath.Clean(root)
+		cfg.Folders = []Folder{{ID: folderID(root), Name: defaultFolderName(root, nil), Path: root}}
+	}
+	cfg.LegacyDataRoot = ""
 	return cfg, nil
 }
 
@@ -200,14 +254,8 @@ func Save(cfg Config) error {
 	if err := os.MkdirAll(Dir(), 0o700); err != nil {
 		return err
 	}
-	if dr := cfg.DataDir(); dr != "" {
-		// 0755, not 0700: the bridge serves this dir to the CRM and may run
-		// as a different account than created it (non-root service user, NFS
-		// root-squash). config.json itself stays 0600.
-		if err := os.MkdirAll(dr, 0o755); err != nil {
-			return err
-		}
-	}
+	// Folders aren't made here: one that isn't there (an unplugged drive) must
+	// not come back as an empty folder on another disk.
 	b, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
 		return err

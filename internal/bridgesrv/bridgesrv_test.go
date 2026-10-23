@@ -3,6 +3,7 @@ package bridgesrv
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"bridge/internal/config"
@@ -98,5 +99,30 @@ func TestWithCORSPreflight(t *testing.T) {
 	}
 	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "https://app.viaveritas.app" {
 		t.Errorf("preflight Allow-Origin = %q; want the reflected origin", got)
+	}
+}
+
+// Chrome's Private Network Access preflight: an allowed origin is let in, any
+// other gets nothing.
+func TestWithCORSPrivateNetworkPreflight(t *testing.T) {
+	h := newCORS(t, "https://app.viaveritas.app")
+	for origin, want := range map[string]string{"https://app.viaveritas.app": "true", "https://evil.example": ""} {
+		req := httptest.NewRequest(http.MethodOptions, "/files", nil)
+		req.Header.Set("Origin", origin)
+		req.Header.Set("Access-Control-Request-Private-Network", "true")
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		if got := rec.Header().Get("Access-Control-Allow-Private-Network"); got != want {
+			t.Errorf("origin %s: Allow-Private-Network = %q; want %q", origin, got, want)
+		}
+	}
+}
+
+// The network learns that the bridge is up, nothing about the computer or its folder.
+func TestHealthzSaysOnlyThatItIsUp(t *testing.T) {
+	rec := httptest.NewRecorder()
+	handleHealthz(rec, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+	if rec.Code != http.StatusOK || strings.TrimSpace(rec.Body.String()) != `{"ok":true}` {
+		t.Fatalf("got %d %q", rec.Code, rec.Body.String())
 	}
 }

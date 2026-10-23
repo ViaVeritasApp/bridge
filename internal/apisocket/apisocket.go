@@ -1,9 +1,12 @@
-// Package socketlog streams the bridge's service log to ViaVeritas: a logx sink
-// feeds each line into a Socket.IO `logs` event on the `/bridges` namespace,
-// with exponential-backoff reconnects. The Socket.IO/Engine.IO v4 client is
-// hand-rolled on a plain WebSocket (only CONNECT, ping/pong, and EVENT are
-// needed) to avoid a full client library.
-package socketlog
+// Package apisocket keeps the bridge's socket to ViaVeritas: the `/bridges`
+// Socket.IO namespace, over which the API sends the changes members make to the
+// bridge's files in the portal (internal/commands) and the bridge streams its
+// service log when socket_logs is on. It announces itself with a `health` event
+// on connecting and every 30 seconds, which is how the API knows it can take
+// commands. The Socket.IO/Engine.IO v4 client is hand-rolled on a plain
+// WebSocket (only CONNECT, ping/pong, EVENT and ACK are needed) to avoid a full
+// client library.
+package apisocket
 
 import (
 	"context"
@@ -16,6 +19,7 @@ import (
 
 	"github.com/coder/websocket"
 
+	"bridge/internal/commands"
 	"bridge/internal/config"
 	"bridge/internal/logx"
 )
@@ -24,25 +28,29 @@ import (
 const namespace = "/bridges"
 
 const (
-	minBackoff    = 5 * time.Second
-	maxBackoff    = 30 * time.Second
-	healthyWindow = 60 * time.Second
+	minBackoff     = 5 * time.Second
+	maxBackoff     = 30 * time.Second
+	healthyWindow  = 60 * time.Second
+	healthInterval = 30 * time.Second
 )
 
-// Run streams the service log to ViaVeritas until ctx is cancelled: it installs
-// a logx sink and keeps one Socket.IO connection alive, reconnecting with 5s→30s
-// backoff (reset after a healthy minute).
+var started = time.Now()
+
+// Run keeps one Socket.IO connection to ViaVeritas alive until ctx is
+// cancelled, reconnecting with 5s→30s backoff (reset after a healthy minute).
 func Run(ctx context.Context, cfg config.Config) {
 	// Buffered so a slow/down socket never stalls logging — a full buffer drops
 	// lines rather than blocking logx.emit.
 	logLines := make(chan string, 256)
-	logx.SetSink(func(line string) {
-		select {
-		case logLines <- line:
-		default:
-		}
-	})
-	defer logx.SetSink(nil)
+	if cfg.SocketLogs {
+		logx.SetSink(func(line string) {
+			select {
+			case logLines <- line:
+			default:
+			}
+		})
+		defer logx.SetSink(nil)
+	}
 
 	backoff := minBackoff
 	for ctx.Err() == nil {
@@ -54,7 +62,7 @@ func Run(ctx context.Context, cfg config.Config) {
 		if time.Since(start) > healthyWindow {
 			backoff = minBackoff // the connection was healthy — reset
 		}
-		logx.Warn("socketlog", "log stream disconnected (%v); reconnecting in %s", err, backoff)
+		logx.Warn("apisocket", "socket disconnected (%v); reconnecting in %s", err, backoff)
 		select {
 		case <-ctx.Done():
 			return
@@ -66,8 +74,8 @@ func Run(ctx context.Context, cfg config.Config) {
 	}
 }
 
-// soConn serializes writes — coder/websocket forbids concurrent Write, and both
-// the reader (pongs) and the emitter write.
+// soConn serializes writes — coder/websocket forbids concurrent Write, and the
+// reader (pongs), the command answers, health and the log emitter all write.
 type soConn struct {
 	conn *websocket.Conn
 	mu   sync.Mutex
@@ -81,8 +89,16 @@ func (c *soConn) send(ctx context.Context, msg string) error {
 	return c.conn.Write(wctx, websocket.MessageText, []byte(msg))
 }
 
-// serveConn opens one Socket.IO connection, performs the handshake, then
-// forwards log lines until the connection drops or ctx ends.
+func (c *soConn) emit(ctx context.Context, event string, data any) error {
+	payload, err := json.Marshal([]any{event, data})
+	if err != nil {
+		return err
+	}
+	return c.send(ctx, "42"+namespace+","+string(payload))
+}
+
+// serveConn opens one Socket.IO connection, performs the handshake, then serves
+// it until the connection drops or ctx ends.
 func serveConn(ctx context.Context, cfg config.Config, logLines <-chan string) error {
 	connCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -101,7 +117,7 @@ func serveConn(ctx context.Context, cfg config.Config, logLines <-chan string) e
 	if err != nil {
 		return fmt.Errorf("dial: %w", err)
 	}
-	conn.SetReadLimit(1 << 20)
+	conn.SetReadLimit(4 << 20) // a batch of commands names up to 500 paths
 	defer conn.CloseNow()
 	c := &soConn{conn: conn}
 
@@ -164,10 +180,14 @@ func serveConn(ctx context.Context, cfg config.Config, logLines <-chan string) e
 		}
 	}
 connected:
-	logx.Info("socketlog", "log stream connected (%s)", namespace)
+	logx.Info("apisocket", "socket connected (%s)", namespace)
 
-	// Reader goroutine: answer Engine.IO pings and detect disconnects — the only
-	// caller of conn.Read once the handshake is done.
+	if err := c.emit(connCtx, "health", health()); err != nil {
+		return fmt.Errorf("emit health: %w", err)
+	}
+
+	// Reader goroutine: answer Engine.IO pings, run commands and detect
+	// disconnects — the only caller of conn.Read once the handshake is done.
 	readErr := make(chan error, 1)
 	go func() {
 		for {
@@ -188,30 +208,95 @@ connected:
 			case s == "1" || strings.HasPrefix(s, "41"): // Engine close / SIO disconnect
 				readErr <- fmt.Errorf("server closed the connection")
 				return
+			case strings.HasPrefix(s, "42"):
+				if event, ok := parseEvent(s); ok {
+					go handle(connCtx, c, cfg, event)
+				}
 			}
 		}
 	}()
 
-	// Emitter: forward each log line as a `logs` event; json.Marshal escapes the
-	// line, so any content is safe inside the packet.
+	tick := time.NewTicker(healthInterval)
+	defer tick.Stop()
 	for {
 		select {
 		case <-connCtx.Done():
 			return connCtx.Err()
 		case rerr := <-readErr:
 			return rerr
-		case line := <-logLines:
-			payload, err := json.Marshal([]any{"logs", map[string]string{
-				"logMessage": strings.TrimRight(line, "\r\n"),
-			}})
-			if err != nil {
-				continue
+		case <-tick.C:
+			if err := c.emit(connCtx, "health", health()); err != nil {
+				return fmt.Errorf("emit health: %w", err)
 			}
-			if err := c.send(connCtx, "42"+namespace+","+string(payload)); err != nil {
+		case line := <-logLines:
+			// json.Marshal escapes the line, so any content is safe inside the packet.
+			if err := c.emit(connCtx, "logs", map[string]string{"logMessage": strings.TrimRight(line, "\r\n")}); err != nil {
 				return fmt.Errorf("emit: %w", err)
 			}
 		}
 	}
+}
+
+// event is one Socket.IO EVENT packet: `42/bridges,<ack id>["name",data]`.
+type event struct {
+	name  string
+	ackID string
+	data  json.RawMessage
+}
+
+func parseEvent(s string) (event, bool) {
+	rest := strings.TrimPrefix(s, "42")
+	if !strings.HasPrefix(rest, namespace+",") {
+		return event{}, false
+	}
+	rest = rest[len(namespace)+1:]
+	i := 0
+	for i < len(rest) && rest[i] >= '0' && rest[i] <= '9' {
+		i++
+	}
+	var parts []json.RawMessage
+	if err := json.Unmarshal([]byte(rest[i:]), &parts); err != nil || len(parts) == 0 {
+		return event{}, false
+	}
+	var name string
+	if err := json.Unmarshal(parts[0], &name); err != nil {
+		return event{}, false
+	}
+	e := event{name: name, ackID: rest[:i]}
+	if len(parts) > 1 {
+		e.data = parts[1]
+	}
+	return e, true
+}
+
+func handle(ctx context.Context, c *soConn, cfg config.Config, e event) {
+	switch e.name {
+	case "command":
+		var cmd commands.Command
+		if err := json.Unmarshal(e.data, &cmd); err != nil {
+			logx.Warn("apisocket", "unreadable command: %v", err)
+			return
+		}
+		// The folders as they are now: one added since the socket opened counts.
+		result := commands.Run(config.LoadOr(cfg), cmd)
+		if e.ackID == "" {
+			return
+		}
+		payload, err := json.Marshal([]any{result})
+		if err != nil {
+			return
+		}
+		if err := c.send(ctx, "43"+namespace+","+e.ackID+string(payload)); err != nil {
+			logx.Warn("apisocket", "could not answer command %s: %v", cmd.ID, err)
+		}
+	case "exception":
+		logx.Warn("apisocket", "the API refused a message: %s", trunc(e.data))
+	}
+}
+
+// health is the API's DeviceHealthDto.
+func health() map[string]any {
+	return map[string]any{"uptime": int(time.Since(started).Seconds())}
 }
 
 // socketURL turns the API base URL into the Socket.IO WebSocket endpoint

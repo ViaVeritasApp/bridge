@@ -1,4 +1,4 @@
-// Command bridge serves a clinic's local files to the CRM over the LAN.
+// Command bridge keeps a folder in sync with ViaVeritas Files and serves it on the LAN.
 package main
 
 import (
@@ -36,24 +36,69 @@ func main() {
 		return nil
 	}
 
-	root.AddCommand(&cobra.Command{
+	installCmd := &cobra.Command{
 		Use:   "install",
-		Short: "Register the bridge as a system service",
+		Short: "Install the bridge in " + config.InstallDir() + " and run it as a system service",
 		RunE:  runInstall,
+	}
+	installCmd.Flags().Bool("force", false, "replace an installed bridge even when it is newer")
+	root.AddCommand(installCmd)
+
+	root.AddCommand(&cobra.Command{
+		Use:   "restart",
+		Short: "Stop the bridge service and start it again",
+		RunE:  runRestart,
+	})
+
+	root.AddCommand(&cobra.Command{
+		Use:   "version",
+		Short: "Print this program's version",
+		Run:   func(*cobra.Command, []string) { fmt.Println(config.DefaultVersion) },
 	})
 
 	configureCmd := &cobra.Command{
 		Use:   "configure",
-		Short: "Set the bridge port and data root",
+		Short: "Set the bridge's port, scan interval, hidden files and log folder",
 		RunE:  runConfigure,
 	}
 	configureCmd.Flags().Int("bridge-port", 0, "port the bridge HTTP API binds (random free 6500-7500 if unset)")
-	configureCmd.Flags().String("data-root", "", "directory the bridge serves (required the first time; kept if omitted later)")
 	configureCmd.Flags().Int("scan-interval", 0, "file-watch stat-scan interval in seconds (default 15; kept if omitted)")
 	configureCmd.Flags().Bool("include-hidden", false, "include dotfiles/hidden dirs in file-watch (default false)")
 	configureCmd.Flags().String("log-dir", "", "directory for service log files (empty resets to <exe-dir>/logs)")
 	configureCmd.Flags().Bool("socket-logs", true, "stream the service log to API over a socket (default true)")
 	root.AddCommand(configureCmd)
+
+	folderCmd := &cobra.Command{
+		Use:   "folder",
+		Short: "List, add, rename or remove the folders it syncs",
+	}
+	folderCmd.AddCommand(&cobra.Command{
+		Use:   "list",
+		Short: "List the folders it syncs",
+		Args:  cobra.NoArgs,
+		RunE:  runFolderList,
+	})
+	folderAdd := &cobra.Command{
+		Use:   "add <path>",
+		Short: "Sync one more folder, apart from those synced already",
+		Args:  cobra.ExactArgs(1),
+		RunE:  runFolderAdd,
+	}
+	folderAdd.Flags().String("name", "", "its name in Files (default: the folder's own)")
+	folderCmd.AddCommand(folderAdd)
+	folderCmd.AddCommand(&cobra.Command{
+		Use:   "rename <name|path> <new name>",
+		Short: "Change a folder's name in Files (its files move there, nothing on disk changes)",
+		Args:  cobra.ExactArgs(2),
+		RunE:  runFolderRename,
+	})
+	folderCmd.AddCommand(&cobra.Command{
+		Use:   "remove <name|path>",
+		Short: "Stop syncing a folder (its files leave Files, nothing on disk changes)",
+		Args:  cobra.ExactArgs(1),
+		RunE:  runFolderRemove,
+	})
+	root.AddCommand(folderCmd)
 
 	root.AddCommand(&cobra.Command{
 		Use:   "uninstall",
@@ -67,7 +112,7 @@ func main() {
 		Args:  cobra.ExactArgs(1),
 		RunE:  runPair,
 	}
-	pairCmd.Flags().String("api-url", "", "API base URL (required)")
+	pairCmd.Flags().String("api-url", "", "API base URL (default "+config.Defaults().APIBaseURL+")")
 	root.AddCommand(pairCmd)
 
 	root.AddCommand(&cobra.Command{

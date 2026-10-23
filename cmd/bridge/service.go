@@ -9,21 +9,22 @@ import (
 
 	"github.com/kardianos/service"
 
+	"bridge/internal/apisocket"
 	"bridge/internal/bridgesrv"
 	"bridge/internal/config"
 	"bridge/internal/heartbeat"
 	"bridge/internal/httpx"
 	"bridge/internal/logx"
 	"bridge/internal/platform"
-	"bridge/internal/socketlog"
-	"bridge/internal/uploadgate"
 	"bridge/internal/watch"
 )
 
 var svcConfig = &service.Config{
 	Name:        "bridge",
-	DisplayName: "LAN Bridge",
-	Description: "Serves clinic files to the CRM over the LAN.",
+	DisplayName: "ViaVeritas Bridge",
+	Description: "Keeps a folder in sync with ViaVeritas Files and serves it on the local network.",
+	// The installed program, whichever copy registers the service.
+	Executable: config.InstalledBinary(),
 	// The bare binary opens the setup UI, so the service manager must invoke
 	// an explicit subcommand. Embedded into the launchd plist / systemd
 	// ExecStart / Windows SCM at install time.
@@ -88,8 +89,8 @@ func (p *program) runForever(ctx context.Context) {
 	if bridgeID == "" {
 		bridgeID = "<unpaired>"
 	}
-	logx.Info("config", "bridgeID=%s api=%s bridgeAddr=%s data=%s version=%s",
-		bridgeID, cfg.APIBaseURL, cfg.BridgeAddr(), cfg.DataDir(), cfg.Version)
+	logx.Info("config", "bridgeID=%s api=%s bridgeAddr=%s folders=%d version=%s",
+		bridgeID, cfg.APIBaseURL, cfg.BridgeAddr(), len(cfg.Folders), cfg.Version)
 
 	if cfg.BridgeID != "" {
 		if cfg.ClientID == "" || cfg.ClientSecret == "" {
@@ -105,17 +106,18 @@ func (p *program) runForever(ctx context.Context) {
 		logx.Warn("bridge", "BridgeID is empty; skipping sync & heartbeat loop (run `bridge pair <code>` to pair)")
 	}
 
-	// Stream the service log to API over a socket. Gated on pairing (auth uses
-	// the bridge token + organization_id) and the SocketLogs flag.
-	if cfg.BridgeID != "" && cfg.OrganizationID != "" && cfg.SocketLogs {
-		logx.Info("bridge", "starting socket log stream")
+	// The socket the API sends its commands on (moves, renames, deletes made in
+	// the portal), and the log stream when SocketLogs is on. Gated on pairing:
+	// auth uses the bridge token + organization_id.
+	if cfg.BridgeID != "" && cfg.OrganizationID != "" {
+		logx.Info("bridge", "starting the API socket (logs streamed: %v)", cfg.SocketLogs)
 		p.wg.Add(1)
 		go func() {
 			defer p.wg.Done()
-			socketlog.Run(ctx, cfg)
+			apisocket.Run(ctx, cfg)
 		}()
-	} else if cfg.BridgeID != "" && cfg.SocketLogs && cfg.OrganizationID == "" {
-		logx.Warn("bridge", "socket log stream disabled: organization_id missing; re-run `bridge pair <code>` to populate it")
+	} else if cfg.BridgeID != "" {
+		logx.Warn("bridge", "API socket disabled: organization_id missing; re-run `bridge pair <code>` to populate it — changes made in the portal can't reach this bridge until then")
 	}
 
 	if cfg.BridgeAddr() != "" {
@@ -153,12 +155,7 @@ func (p *program) syncLoop(ctx context.Context, cfg config.Config) {
 
 	for {
 		live := config.LoadOr(cfg)
-		var syncErr error
-		if uploadgate.Locked() {
-			logx.Debug("bridge", "sync locked (prepared upload in progress); skipping scan this tick")
-		} else {
-			syncErr = watch.ScanOnce(ctx, live, syncClient, syncURL)
-		}
+		syncErr := watch.ScanOnce(ctx, live, syncClient, syncURL)
 		heartbeat.Send(ctx, live, hbClient, hbURL, syncErr)
 
 		select {
@@ -166,6 +163,7 @@ func (p *program) syncLoop(ctx context.Context, cfg config.Config) {
 			logx.Info("bridge", "loop stopping (ctx cancelled)")
 			return
 		case <-time.After(live.ScanInterval()):
+		case <-watch.Nudged():
 		}
 	}
 }

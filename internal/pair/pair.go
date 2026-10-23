@@ -30,6 +30,7 @@ type claimResp struct {
 	AllowedOrigin  []string `json:"allowed_origin"`
 	ClientID       string   `json:"client_id"`
 	ClientSecret   string   `json:"client_secret"`
+	SigningKey     string   `json:"signing_key"`
 	Subdomain      string   `json:"subdomain"`
 	TLSEnabled     bool     `json:"tls_enabled"`
 	TLSDomain      string   `json:"tls_domain,omitempty"`
@@ -62,7 +63,9 @@ func Claim(apiBaseURL, code, baseURL string) (config.Config, error) {
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client := httpx.Client(30 * time.Second)
+	// The API gets the bridge its certificate before answering, which waits up to a minute for DNS:
+	// a client that gave up sooner would leave the API with a bridge this one never heard of.
+	client := httpx.Client(150 * time.Second)
 	res, err := client.Do(req)
 	if err != nil {
 		return cfg, fmt.Errorf("claim request failed: %w", err)
@@ -82,6 +85,7 @@ func Claim(apiBaseURL, code, baseURL string) (config.Config, error) {
 	cfg.OrganizationID = parsed.OrganizationID
 	cfg.ClientID = parsed.ClientID
 	cfg.ClientSecret = parsed.ClientSecret
+	cfg.SigningKey = parsed.SigningKey
 	cfg.AllowedOrigin = parsed.AllowedOrigin
 	// TLS info is best-effort — empty when ACME failed at claim time; the bridge
 	// serves HTTP until the renewal cron pushes a cert on a later heartbeat.

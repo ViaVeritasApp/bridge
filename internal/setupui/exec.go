@@ -2,11 +2,15 @@ package setupui
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
+
+	"bridge/internal/config"
 
 	"bridge/internal/platform"
 )
@@ -38,6 +42,7 @@ func (s *srv) runSelf(w http.ResponseWriter, r *http.Request, args ...string) {
 	cmd.Env = append(os.Environ(), "NO_COLOR=1")
 	out, runErr := cmd.CombinedOutput()
 	text := strings.TrimRight(string(out), "\n")
+	recordAction(args, text, runErr)
 
 	if runErr != nil {
 		msg := lastMeaningfulLine(text)
@@ -51,6 +56,34 @@ func (s *srv) runSelf(w http.ResponseWriter, r *http.Request, args ...string) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"output": text})
+}
+
+// recordAction writes what an action ran and printed into the bridge's log, so
+// Activity (and `bridge logs`) shows it beside the service's own lines. It
+// appends: the service, writing the same file, only ever appends too.
+func recordAction(args []string, output string, runErr error) {
+	cfg, _ := config.Load()
+	path := cfg.LogFile()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	line := func(level, msg string) string {
+		return fmt.Sprintf("%s  %-6s %-12s %s\n", time.Now().Format("15:04:05.000"), level, "[setup]", msg)
+	}
+	var b strings.Builder
+	b.WriteString(line("INFO", "bridge "+strings.Join(args, " ")))
+	if output != "" {
+		b.WriteString(output + "\n")
+	}
+	if runErr != nil {
+		b.WriteString(line("ERROR", fmt.Sprintf("bridge %s failed: %v", args[0], runErr)))
+	}
+	_, _ = f.WriteString(b.String())
 }
 
 // lastMeaningfulLine pulls the most useful line out of a failed command's
