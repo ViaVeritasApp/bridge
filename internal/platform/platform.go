@@ -46,6 +46,10 @@ type OperatingSystem interface {
 	// SetServiceUmask sets the service process umask (Unix: 022) or is a no-op
 	// (Windows uses ACLs).
 	SetServiceUmask()
+	// HardenDir keeps other users out of the bridge's install folder: on
+	// Windows only SYSTEM and Administrators may touch it or anything in it,
+	// elsewhere only its owner writes to it.
+	HardenDir(dir string) error
 	// StopService stops the named installed service and guarantees its process
 	// is gone (Windows force-terminates a process a graceful stop left alive).
 	StopService(s service.Service, name string) error

@@ -2,8 +2,6 @@ package watch
 
 import (
 	"context"
-	"os"
-	"strings"
 	"time"
 
 	"bridge/internal/config"
@@ -11,17 +9,18 @@ import (
 
 // Plan summarises what the next sync would upload, as computed by Preview.
 type Plan struct {
-	Mode       string // "full" | "incremental" | "none" | "skip"
-	Reason     string // set when Mode == "skip"
-	DataRoot   string // resolved data root ("" if unset)
-	IndexFound bool   // false => the next sync is a full sync
-	Created    int    // full: every file; incremental: new files
-	Modified   int    // incremental only
-	Deleted    int    // file-IDs that would be sent in deleted[]
-	Total      int    // files[] count that would be uploaded
-	Indexed    int    // files already recorded in index.txt (snapshot size)
-	Skipped    int    // entries the scan could not read (permissions/races)
-	ScanTook   time.Duration
+	Mode        string   // "full" | "incremental" | "none" | "skip"
+	Reason      string   // set when Mode == "skip"
+	Folders     []string // the synced folders' names
+	Unavailable []string // those that couldn't be read, whose files are kept
+	IndexFound  bool     // false => the next sync is a full sync
+	Created     int      // full: every file; incremental: new files
+	Modified    int      // incremental only
+	Deleted     int      // file-IDs that would be sent in deleted[]
+	Total       int      // files[] count that would be uploaded
+	Indexed     int      // files already recorded in index.txt (snapshot size)
+	Skipped     int      // entries the scan could not read (permissions/races)
+	ScanTook    time.Duration
 }
 
 // Preview runs the same scan + diff as the live sync but uploads and writes
@@ -38,12 +37,17 @@ func PreviewProgress(ctx context.Context, cfg config.Config, onScan func(scanned
 	if err != nil {
 		return Plan{}, err
 	}
+	names := make([]string, len(cfg.Folders))
+	for i, f := range cfg.Folders {
+		names[i] = f.Name
+	}
 	p := Plan{
-		DataRoot:   strings.TrimRight(cfg.DataDir(), string(os.PathSeparator)),
-		IndexFound: r.hadIndex,
-		Indexed:    len(r.snapshot),
-		Skipped:    r.skipped,
-		ScanTook:   r.scanTook,
+		Folders:     names,
+		Unavailable: r.unavailable,
+		IndexFound:  r.hadIndex,
+		Indexed:     len(r.snapshot),
+		Skipped:     r.skipped,
+		ScanTook:    r.scanTook,
 	}
 	switch {
 	case r.skip != "":

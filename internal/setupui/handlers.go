@@ -6,24 +6,61 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
 
 	"bridge/internal/config"
+	"bridge/internal/control"
 	"bridge/internal/pair"
+	"bridge/internal/platform"
 	"bridge/internal/watch"
 )
+
+func (s *srv) serviceState() string {
+	if s.hooks.ServiceState == nil {
+		return "unknown"
+	}
+	return s.hooks.ServiceState()
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
 
 func (s *srv) handleStatus(w http.ResponseWriter, r *http.Request) {
 	cfg, _ := config.Load() // Defaults on miss; that's fine for status display.
 	urls := pair.GuessLANURLs(cfg)
+	installed := config.InstalledVersion()
+	// Installed: the service manager knows the service and its program is in the
+	// install folder; elsewhere: it knows one that runs from another place (a
+	// bridge set up before installs copied themselves), which installing moves.
+	service := s.serviceState()
+	installState := "not_installed"
+	if service == "running" || service == "stopped" {
+		installState = "installed"
+		if !fileExists(config.InstalledBinary()) {
+			installState = "elsewhere"
+		}
+	}
+	isInstalled := false
+	if exe, err := os.Executable(); err == nil {
+		if resolved, rerr := filepath.EvalSymlinks(exe); rerr == nil {
+			exe = resolved
+		}
+		if a, aerr := os.Stat(exe); aerr == nil {
+			if b, berr := os.Stat(config.InstalledBinary()); berr == nil {
+				isInstalled = os.SameFile(a, b)
+			}
+		}
+	}
 	// "Installed" means a config exists and a bridge port is chosen — there's
 	// no external binary to look for now that dufs is gone.
 	resp := map[string]any{
 		"paired":           cfg.BridgeID != "" && cfg.ClientID != "" && cfg.ClientSecret != "",
 		"bridgeId":         cfg.BridgeID,
-		"dataRoot":         cfg.DataDir(),
 		"lanUrl":           urls.BridgeBaseURL,
 		"mdnsUrl":          urls.BridgeMdnsBaseURL,
 		"tlsUrl":           urls.BridgeTLSBaseURL,
@@ -36,6 +73,58 @@ func (s *srv) handleStatus(w http.ResponseWriter, r *http.Request) {
 		"scanInterval":  cfg.ScanIntervalSeconds,
 		"includeHidden": cfg.IncludeHidden,
 		"logDir":        cfg.LogDir(),
+		// Where it installs, and how this copy stands to what is there.
+		"installDir":       config.InstallDir(),
+		"installedBinary":  config.InstalledBinary(),
+		"version":          config.DefaultVersion,
+		"installedVersion": installed,
+		"programInstalled": installed != "" || fileExists(config.InstalledBinary()),
+		"isInstalledCopy":  isInstalled,
+		"newerInstalled":   !isInstalled && config.CompareVersions(installed, config.DefaultVersion) > 0,
+		"updateAvailable":  !isInstalled && installed != "" && config.CompareVersions(config.DefaultVersion, installed) > 0,
+		// For the dashboard.
+		"service":         service,
+		"installState":    installState,
+		"lastHeartbeatAt": cfg.LastHeartbeatAt,
+		"socketReady":     cfg.BridgeID != "" && cfg.OrganizationID != "",
+		"signingKey":      cfg.SigningKey != "",
+		"logFile":         cfg.LogFile(),
+		"os":              runtime.GOOS,
+		"filesOn":         cfg.Effective(config.FeatureFiles),
+		"filesHere":       cfg.Allows(config.FeatureFiles),
+	}
+	// The running service's own word on its socket, when it answers.
+	if st, err := control.Ask(); err == nil {
+		resp["socket"], resp["openStreams"] = st.Socket, len(st.Streams)
+	}
+	n, at, perFolder, indexed := s.index.read()
+	if indexed {
+		resp["indexed"], resp["indexedAt"] = n, at.UTC().Format(time.RFC3339)
+	}
+	// Each folder as it stands, and the least free space among them: the disk that fills first.
+	folders := make([]map[string]any, 0, len(cfg.Folders))
+	protected := false
+	var leastFree *int64
+	for _, f := range cfg.Folders {
+		item := map[string]any{"id": f.ID, "name": f.Name, "path": f.Path, "files": perFolder[f.Name], "protected": platform.Protected(f.Path)}
+		if info, err := os.Stat(f.Path); err == nil && info.IsDir() {
+			free := platform.Current().DiskFreeBytes(f.Path)
+			item["available"], item["freeBytes"] = true, free
+			if leastFree == nil || free < *leastFree {
+				leastFree = &free
+			}
+		} else {
+			item["available"] = false
+		}
+		protected = protected || platform.Protected(f.Path)
+		folders = append(folders, item)
+	}
+	resp["folders"], resp["protectedRoot"] = folders, protected
+	if leastFree != nil {
+		resp["freeBytes"] = *leastFree
+	}
+	if until, ok := certUntil(config.Dir()); ok {
+		resp["tlsUntil"] = until.UTC().Format(time.RFC3339)
 	}
 	writeJSON(w, http.StatusOK, resp)
 }
@@ -98,17 +187,18 @@ func (s *srv) handlePreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = enc.Encode(map[string]any{"result": map[string]any{
-		"mode":       plan.Mode,
-		"reason":     plan.Reason,
-		"dataRoot":   plan.DataRoot,
-		"indexFound": plan.IndexFound,
-		"indexed":    plan.Indexed,
-		"skipped":    plan.Skipped,
-		"created":    plan.Created,
-		"modified":   plan.Modified,
-		"deleted":    plan.Deleted,
-		"total":      plan.Total,
-		"scanTook":   plan.ScanTook.String(),
+		"mode":        plan.Mode,
+		"reason":      plan.Reason,
+		"folders":     plan.Folders,
+		"unavailable": plan.Unavailable,
+		"indexFound":  plan.IndexFound,
+		"indexed":     plan.Indexed,
+		"skipped":     plan.Skipped,
+		"created":     plan.Created,
+		"modified":    plan.Modified,
+		"deleted":     plan.Deleted,
+		"total":       plan.Total,
+		"scanTook":    plan.ScanTook.String(),
 	}})
 }
 
@@ -120,20 +210,19 @@ func (s *srv) handleResync(w http.ResponseWriter, r *http.Request) {
 
 func (s *srv) handleConfigure(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		DataRoot      string
 		BridgePort    int
 		ScanInterval  int
 		IncludeHidden *bool   // nil = leave unchanged; non-nil = set explicitly
 		LogDir        *string // nil = leave unchanged; "" = reset to default
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.DataRoot) == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "please choose a folder first"})
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "bad request"})
 		return
 	}
 
-	// Only data-root is mandatory; other flags are forwarded to `configure`
-	// as set, reusing runConfigure's validation and random-port fallback.
-	args := []string{"configure", "--data-root", req.DataRoot}
+	// Flags are forwarded to `configure` as set, reusing runConfigure's
+	// validation and random-port fallback.
+	args := []string{"configure"}
 	if req.BridgePort > 0 {
 		args = append(args, "--bridge-port", strconv.Itoa(req.BridgePort))
 	}
@@ -144,9 +233,42 @@ func (s *srv) handleConfigure(w http.ResponseWriter, r *http.Request) {
 		args = append(args, fmt.Sprintf("--include-hidden=%t", *req.IncludeHidden))
 	}
 	if req.LogDir != nil {
-		args = append(args, "--log-dir", *req.LogDir)
+		args = append(args, "--log-dir="+*req.LogDir)
 	}
 	s.runSelf(w, r, args...)
+}
+
+// The folders it syncs, changed through the `folder` subcommand. "--" ends its
+// flags, so a path or a name starting with a dash is taken as one.
+func (s *srv) handleFolderAdd(w http.ResponseWriter, r *http.Request) {
+	var req struct{ Path, Name string }
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Path) == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "choose a folder"})
+		return
+	}
+	args := []string{"folder", "add"}
+	if name := strings.TrimSpace(req.Name); name != "" {
+		args = append(args, "--name="+name)
+	}
+	s.runSelf(w, r, append(args, "--", req.Path)...)
+}
+
+func (s *srv) handleFolderRename(w http.ResponseWriter, r *http.Request) {
+	var req struct{ Name, NewName string }
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Name == "" || strings.TrimSpace(req.NewName) == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "give it a name"})
+		return
+	}
+	s.runSelf(w, r, "folder", "rename", "--", req.Name, strings.TrimSpace(req.NewName))
+}
+
+func (s *srv) handleFolderRemove(w http.ResponseWriter, r *http.Request) {
+	var req struct{ Name string }
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Name == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "bad request"})
+		return
+	}
+	s.runSelf(w, r, "folder", "remove", "--", req.Name)
 }
 
 func (s *srv) handleInstall(w http.ResponseWriter, r *http.Request) {

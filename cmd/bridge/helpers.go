@@ -44,6 +44,10 @@ func selectPort(cmd *cobra.Command, flag string, existing, lo, hi int, host, ran
 // `install` starts it later, not a failure). restartedMsg is logged verbatim
 // on a successful restart.
 func restartOrStartService(restartedMsg string) {
+	if serviceState() == "not_installed" {
+		logx.Info("bridge", "saved; it applies once the bridge is installed")
+		return
+	}
 	s, serr := service.New(&program{}, svcConfig)
 	if serr != nil {
 		return

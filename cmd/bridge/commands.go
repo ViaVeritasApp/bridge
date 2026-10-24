@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"reflect"
@@ -11,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"bridge/internal/config"
+	"bridge/internal/control"
 	"bridge/internal/heartbeat"
 	"bridge/internal/logx"
 	"bridge/internal/pair"
@@ -19,9 +21,21 @@ import (
 	"bridge/internal/watch"
 )
 
-func runInstall(_ *cobra.Command, _ []string) error {
+func runInstall(cmd *cobra.Command, _ []string) error {
 	if err := platform.Require("installing the bridge service"); err != nil {
 		return err
+	}
+	force, _ := cmd.Flags().GetBool("force")
+	if err := installProgram(force); err != nil {
+		return err
+	}
+	if cfg, err := config.Load(); err == nil && cfg.BridgePort == 0 {
+		if err := ensurePort(&cfg); err != nil {
+			return err
+		}
+		if err := config.Save(cfg); err != nil {
+			return err
+		}
 	}
 	s, err := service.New(&program{}, svcConfig)
 	if err != nil {
@@ -68,20 +82,6 @@ func runConfigure(cmd *cobra.Command, _ []string) error {
 	// (AllowedOrigin), so compare with reflect.DeepEqual, not ==.
 	before := cfg
 
-	dataRootFlag, _ := cmd.Flags().GetString("data-root")
-	dataRootFlag = strings.TrimSpace(dataRootFlag)
-	if dataRootFlag != "" {
-		// Store an absolute path: the service runs with CWD "/" (read-only on
-		// macOS), so a relative data root must not resolve at runtime.
-		abs, aerr := filepath.Abs(dataRootFlag)
-		if aerr != nil {
-			return fmt.Errorf("resolve --data-root %q: %w", dataRootFlag, aerr)
-		}
-		cfg.DataRoot = abs
-	} else if strings.TrimSpace(cfg.DataRoot) == "" {
-		return fmt.Errorf("--data-root is required (no data root configured yet)")
-	}
-
 	// Bridge HTTP API port: explicit flag wins, else the existing config's
 	// port, else a random free port. The only port the bridge binds.
 	bridgePort, err := selectPort(cmd, "bridge-port", cfg.BridgePort, 6500, 7500, "0.0.0.0", "selected random free bridge port")
@@ -101,16 +101,16 @@ func runConfigure(cmd *cobra.Command, _ []string) error {
 		v, _ := cmd.Flags().GetBool("include-hidden")
 		cfg.IncludeHidden = v
 	}
-	if cmd.Flags().Changed("socket-logs") {
-		v, _ := cmd.Flags().GetBool("socket-logs")
-		cfg.SocketLogs = v
-	}
 	if cmd.Flags().Changed("log-dir") {
 		v, _ := cmd.Flags().GetString("log-dir")
 		if v = strings.TrimSpace(v); v != "" {
 			abs, aerr := filepath.Abs(v)
 			if aerr != nil {
 				return fmt.Errorf("resolve --log-dir %q: %w", v, aerr)
+			}
+			// Its log would sync with the folder, and change at every scan.
+			if f, ok := cfg.FolderHolding(abs); ok {
+				return fmt.Errorf("--log-dir %s is in %q, which is synced: choose a folder apart from it", abs, f.Name)
 			}
 			cfg.LogDirectory = abs
 		} else {
@@ -121,7 +121,7 @@ func runConfigure(cmd *cobra.Command, _ []string) error {
 	if err := config.Save(cfg); err != nil {
 		return err
 	}
-	logx.Ok("bridge", "configured port=%d data=%s", cfg.BridgePort, cfg.DataDir())
+	logx.Ok("bridge", "configured port=%d", cfg.BridgePort)
 
 	if !reflect.DeepEqual(cfg, before) {
 		restartOrStartService("service restarted to apply new config")
@@ -165,13 +165,17 @@ func runUninstall(_ *cobra.Command, _ []string) error {
 func runPair(cmd *cobra.Command, args []string) error {
 	apiURL, _ := cmd.Flags().GetString("api-url")
 	if strings.TrimSpace(apiURL) == "" {
-		return fmt.Errorf("--api-url is required")
+		apiURL = config.Defaults().APIBaseURL
 	}
 	if err := platform.Require("saving the bridge configuration"); err != nil {
 		return err
 	}
 
 	cfg := config.LoadOrDefaults()
+	// Its address on the network goes with the claim, so it needs a port first.
+	if err := ensurePort(&cfg); err != nil {
+		return err
+	}
 
 	urls := pair.GuessLANURLs(cfg)
 
@@ -181,8 +185,10 @@ func runPair(cmd *cobra.Command, args []string) error {
 	}
 	cfg.APIBaseURL = claimCfg.APIBaseURL
 	cfg.BridgeID = claimCfg.BridgeID
+	cfg.OrganizationID = claimCfg.OrganizationID
 	cfg.ClientID = claimCfg.ClientID
 	cfg.ClientSecret = claimCfg.ClientSecret
+	cfg.SigningKey = claimCfg.SigningKey
 	cfg.AllowedOrigin = claimCfg.AllowedOrigin
 	// TLS provisioning info — empty until ACME succeeds; the cert arrives
 	// later via heartbeat.
@@ -222,7 +228,49 @@ func launchSetupUI() error {
 	// Ctrl+C cleanly stops the local server.
 	ctx, stop := signalContext()
 	defer stop()
-	return setupui.Serve(ctx)
+	return setupui.Serve(ctx, setupui.Hooks{ServiceState: serviceState})
+}
+
+// serviceState is the service manager's word on the bridge's service.
+func serviceState() string {
+	s, err := service.New(&program{}, svcConfig)
+	if err != nil {
+		return "unknown"
+	}
+	st, err := s.Status()
+	if errors.Is(err, service.ErrNotInstalled) {
+		return "not_installed"
+	}
+	if err != nil {
+		return "unknown"
+	}
+	switch st {
+	case service.StatusRunning:
+		return "running"
+	case service.StatusStopped:
+		return "stopped"
+	}
+	return "unknown"
+}
+
+// runRestart stops the service and starts it again: it picks up its settings
+// and scans its folder at once.
+func runRestart(_ *cobra.Command, _ []string) error {
+	if err := platform.Require("restarting the bridge service"); err != nil {
+		return err
+	}
+	s, err := service.New(&program{}, svcConfig)
+	if err != nil {
+		return err
+	}
+	if serr := platform.Current().StopService(s, svcConfig.Name); serr != nil {
+		logx.Info("bridge", "service wasn't running (%v); starting it", serr)
+	}
+	if err := s.Start(); err != nil {
+		return fmt.Errorf("start the service: %w", err)
+	}
+	logx.Ok("bridge", "service restarted")
+	return nil
 }
 
 func runStatus(_ *cobra.Command, _ []string) error {
@@ -254,6 +302,10 @@ func runStatus(_ *cobra.Command, _ []string) error {
 	if cfg.ClientSecret != "" {
 		credentials = "present"
 	}
+	signingKey := "absent (download links fail until the next heartbeat brings it)"
+	if cfg.SigningKey != "" {
+		signingKey = "present"
+	}
 	urls := pair.GuessLANURLs(cfg)
 
 	fmt.Println(logx.Comment("# bridge status"))
@@ -261,10 +313,14 @@ func runStatus(_ *cobra.Command, _ []string) error {
 	kv("linked", linked, false)
 	kv("bridge_id", cfg.BridgeID, true)
 	kv("credentials", credentials, true)
+	kv("signing_key", signingKey, true)
+	kv("organization", cfg.OrganizationID, true)
 	kv("api", cfg.APIBaseURL, true)
 	section("serving")
 	kv("bind", cfg.BridgeAddr(), true)
-	kv("data_root", cfg.DataDir(), true)
+	for _, f := range cfg.Folders {
+		kv("folder", f.Name+" = "+f.Path, true)
+	}
 	kv("lan_url", urls.BridgeBaseURL, true)
 	kv("mdns_url", urls.BridgeMdnsBaseURL, true)
 	kv("tls_url", urls.BridgeTLSBaseURL, true)
@@ -276,7 +332,26 @@ func runStatus(_ *cobra.Command, _ []string) error {
 	section("config")
 	kv("path", config.Path(), true)
 	kv("logs", cfg.LogFile(), true)
-	kv("socket_logs", strconv.FormatBool(cfg.SocketLogs), false)
+	section("features")
+	for _, f := range config.Built {
+		kv(string(f), featureState(cfg, f), false)
+	}
+	if cfg.RemotePaused {
+		kv("remote", "paused", false)
+	}
+	section("service")
+	if st, err := control.Ask(); err == nil {
+		socket := "not connected"
+		if st.Socket.Connected {
+			socket = "connected since " + st.Socket.Since
+		} else if st.Socket.Error != "" {
+			socket = "not connected: " + st.Socket.Error
+		}
+		kv("socket", socket, true)
+		kv("streams", strconv.Itoa(len(st.Streams)), false)
+	} else {
+		kv("running", "false", false)
+	}
 	return nil
 }
 
@@ -302,15 +377,14 @@ func runPreview(cmd *cobra.Command, _ []string) error {
 		kv("reason", plan.Reason)
 		return nil
 	}
-	root := plan.DataRoot
-	if root == "" {
-		root = "(unset)"
-	}
 	index := "present"
 	if !plan.IndexFound {
 		index = "missing"
 	}
-	kv("data_root", root)
+	kv("folders", strings.Join(plan.Folders, ", "))
+	if len(plan.Unavailable) > 0 {
+		kv("unreadable", strings.Join(plan.Unavailable, ", ")+" (their files stay as they were)")
+	}
 	kv("index", index)
 	kv("index_path", watch.IndexPath())
 	kv("indexed", strconv.Itoa(plan.Indexed))

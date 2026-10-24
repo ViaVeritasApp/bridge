@@ -26,7 +26,7 @@ var indexHTML string
 // Serve starts the setup web server, opens the operator's browser at it, and
 // blocks until ctx is cancelled (Ctrl+C) or the server stops. The caller must
 // do the elevation check first.
-func Serve(ctx context.Context) error {
+func Serve(ctx context.Context, hooks Hooks) error {
 	token := newToken()
 	page := strings.ReplaceAll(indexHTML, "__CSRF__", token)
 
@@ -43,7 +43,7 @@ func Serve(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	s := &srv{token: token, page: page, stop: cancel}
+	s := &srv{token: token, page: page, stop: cancel, hooks: hooks}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", s.handleIndex)
 	mux.HandleFunc("/api/status", s.guard(s.handleStatus))
@@ -55,6 +55,20 @@ func Serve(ctx context.Context) error {
 	mux.HandleFunc("/api/install", s.guard(s.handleInstall))
 	mux.HandleFunc("/api/uninstall", s.guard(s.handleUninstall))
 	mux.HandleFunc("/api/pair", s.guard(s.handlePair))
+	mux.HandleFunc("/api/logs", s.guard(s.handleLogs))
+	mux.HandleFunc("/api/folders/add", s.guard(s.handleFolderAdd))
+	mux.HandleFunc("/api/folders/rename", s.guard(s.handleFolderRename))
+	mux.HandleFunc("/api/folders/remove", s.guard(s.handleFolderRemove))
+	mux.HandleFunc("/api/restart", s.guard(s.handleRestart))
+	mux.HandleFunc("/api/remote", s.guard(s.handleRemote))
+	mux.HandleFunc("/api/features", s.guard(s.handleFeature))
+	mux.HandleFunc("/api/pause", s.guard(s.handlePause))
+	mux.HandleFunc("/api/sessions/end", s.guard(s.handleSessionEnd))
+	mux.HandleFunc("/api/updates/now", s.guard(s.handleUpdateNow))
+	mux.HandleFunc("/api/sessions/run-as", s.guard(s.handleRunAs))
+	mux.HandleFunc("/api/sessions/notices", s.guard(s.handleNotices))
+	mux.HandleFunc("/api/logs/add", s.guard(s.handleLogAdd))
+	mux.HandleFunc("/api/logs/remove", s.guard(s.handleLogRemove))
 	// ping/bye drive auto-shutdown on browser close. They only stop this local
 	// server, so loopback-only (no CSRF) is enough — sendBeacon can't set the
 	// CSRF header anyway.
@@ -98,7 +112,11 @@ type srv struct {
 	// stays up (Ctrl+C still works).
 	seen     atomic.Bool
 	lastSeen atomic.Int64 // UnixNano of the most recent ping
+	hooks    Hooks
+	index    indexCount
 }
+
+const pageCSP = "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 
 func (s *srv) handleIndex(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
@@ -112,6 +130,8 @@ func (s *srv) handleIndex(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
+	// The page is self-contained: nothing from elsewhere loads, and no other page frames it.
+	w.Header().Set("Content-Security-Policy", pageCSP)
 	_, _ = w.Write([]byte(s.page))
 }
 

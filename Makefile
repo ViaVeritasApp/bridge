@@ -15,15 +15,14 @@ else
 endif
 LDFLAGS := -s -w -X bridge/internal/config.DefaultVersion=$(VERSION)
 
-# Install location. The service keeps config.json, index.txt and the logs/
-# folder next to the executable, so a stable directory is important.
-# Override with `make install INSTALL_DIR=/some/path`.
+# Install location: `bridge install` copies itself here (config.InstallDir) and
+# keeps config.json, index.txt, logs/ and tls/ here, whichever copy runs.
 ifeq ($(OS),Windows_NT)
   EXT := .exe
-  INSTALL_DIR ?= C:/opt/bridge
+  INSTALL_DIR ?= C:/opt/viaveritas/bridge
 else
   EXT :=
-  INSTALL_DIR ?= /opt/bridge
+  INSTALL_DIR ?= /opt/viaveritas/bridge
 endif
 BIN_OUT := $(BIN)$(EXT)
 
@@ -43,7 +42,7 @@ install: build
 	mkdir -p "$(INSTALL_DIR)"
 	cp "$(BIN_OUT)" "$(INSTALL_DIR)/$(BIN_OUT)"
 	@echo "Installed $(BIN_OUT) to $(INSTALL_DIR)"
-	@echo "Next: cd $(INSTALL_DIR) && sudo ./$(BIN_OUT) pair <code> --api-url <url> && sudo ./$(BIN_OUT) install"
+	@echo "Next: sudo $(INSTALL_DIR)/$(BIN_OUT) (setup), or sudo $(INSTALL_DIR)/$(BIN_OUT) install && sudo $(INSTALL_DIR)/$(BIN_OUT) pair <code>"
 
 uninstall:
 	rm -f "$(INSTALL_DIR)/$(BIN_OUT)"

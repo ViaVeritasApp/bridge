@@ -4,11 +4,12 @@ package platform
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"syscall"
+
+	"bridge/internal/config"
 )
 
 // firewallRuleName is the display name and stable key of the Windows Defender
@@ -94,17 +95,8 @@ func runNetsh(args ...string) (string, error) {
 	return strings.TrimSpace(string(out)), err
 }
 
-// bridgeExePath returns the absolute path of the running bridge executable for
-// the rule's program= key. Symlinks are resolved so the rule keys on the real
-// image path (also normalizes, harmless on Windows); on a resolve failure the
-// raw os.Executable() value is used.
+// bridgeExePath is the program the rule lets in: the installed one the service
+// runs, whichever copy ran `install`.
 func bridgeExePath() (string, error) {
-	exe, err := os.Executable()
-	if err != nil {
-		return "", err
-	}
-	if resolved, rerr := filepath.EvalSymlinks(exe); rerr == nil {
-		exe = resolved
-	}
-	return filepath.Clean(exe), nil
+	return filepath.Clean(config.InstalledBinary()), nil
 }

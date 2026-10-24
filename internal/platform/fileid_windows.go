@@ -48,3 +48,7 @@ func (osImpl) ComputeFileID(path string, _ os.FileInfo) (id string, ok bool) {
 	idx := uint64(bhfi.FileIndexHigh)<<32 | uint64(bhfi.FileIndexLow)
 	return fmt.Sprintf("%x:%x", vol, idx), true
 }
+
+// DeviceOf isn't needed on Windows: a walk doesn't follow the mount points
+// (reparse points) that put another volume inside a folder.
+func DeviceOf(os.FileInfo) (uint64, bool) { return 0, false }

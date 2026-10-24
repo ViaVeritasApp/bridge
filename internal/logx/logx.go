@@ -107,7 +107,7 @@ func emit(l level, comp, format string, args ...any) {
 }
 
 // logSink is an optional extra destination for every emitted line, installed via
-// SetSink. Used by internal/socketlog to stream logs to ViaVeritas.
+// SetSink. Used by internal/apisocket to stream logs to ViaVeritas.
 var logSink atomic.Pointer[func(string)]
 
 // SetSink installs fn as an extra destination for every emitted line (nil to
@@ -143,6 +143,9 @@ func EnableFileLogging(path string) error {
 	// Wrap each writer so a failing one (a Windows service has no console, so
 	// os.Stdout errors) can't stop MultiWriter from reaching the other.
 	out = io.MultiWriter(bestEffortWriter{os.Stdout}, bestEffortWriter{rf})
+	// The file is read as plain lines (the dashboard, `bridge logs`). A service
+	// has no terminal, though its stdout (/dev/null) passes for one.
+	colorOn = false
 	mu.Unlock()
 	return nil
 }

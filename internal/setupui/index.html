@@ -4,951 +4,1669 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="csrf" content="__CSRF__">
-<title data-i18n="title">ViaVeritas Bridge · Setup</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Hanken+Grotesque:wght@400;500;600;700&display=swap" rel="stylesheet">
+<meta name="color-scheme" content="light dark">
+<title data-i18n="title">ViaVeritas Bridge</title>
 <style>
+  /* The portal's tokens (portal/src/index.css): ink on paper, destructive red the only hue. No webfont:
+     the system sans for text, the logo's serif stack for headings and figures. */
   :root{
-    /* Brand teal/navy scale (single source of truth) */
-    --t1:#F6FEFF; --t2:#ECFCFE; --t3:#CCF5FA; --t4:#7ECFD7; --t5:#43B3BE;
-    --t6:#148D98; --t7:#0F636B; --t8:#1E2433; --t9:#141826;
-
-    /* Semantic tokens mapped onto the scale */
-    --paper:var(--t1);
-    --paper-2:var(--t2);
-    --line:var(--t3);
-    --ink:var(--t9);
-    --ink-soft:var(--t7);
-    --teal:var(--t6);
-    --teal-deep:var(--t7);
-    --teal-wash:var(--t3);
-    --card:#FFFFFF;
-    /* Error semantics kept distinct for usability (no red in the brand scale) */
-    --err:#C0573B; --err-wash:#F6E7E1; --err-ink:#8A3A25;
-
-    --shadow:0 1px 2px rgba(20,24,38,.05),0 8px 24px -12px rgba(20,24,38,.22);
-    --shadow-lg:0 2px 4px rgba(20,24,38,.06),0 24px 56px -20px rgba(20,24,38,.30);
-    --r:14px;
+    color-scheme:light;
+    --background:#fafaf9; --card:#ffffff; --foreground:#1c1917; --muted-foreground:#78716c;
+    --border:#e7e5e4; --input:#e7e5e4; --primary:#1c1917; --primary-foreground:#fafaf9;
+    --destructive:#dc2626;
+    --tint:color-mix(in srgb,var(--foreground) 8%,transparent);
+    --tint-faint:color-mix(in srgb,var(--foreground) 5%,transparent);
+    --sans:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    --display:"Iowan Old Style","Palatino Linotype","Book Antiqua",Palatino,"Source Serif 4",Charter,Georgia,"Times New Roman",serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+    --radius-card:1rem; --radius-xl:.75rem; --radius-lg:.5rem; --radius-md:.375rem;
+    --top-h:56px;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      color-scheme:dark;
+      --background:#1c1917; --card:#292524; --foreground:#fafaf9; --muted-foreground:#a8a29e;
+      --border:#44403c; --input:#44403c; --primary:#fafaf9; --primary-foreground:#1c1917;
+      --destructive:#f87171;
+    }
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  html,body{height:100%}
-  body{
-    font-family:"Hanken Grotesque",ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif;
-    background:var(--paper);
-    color:var(--ink);
-    -webkit-font-smoothing:antialiased;
-    line-height:1.5;
-    position:relative;
-    overflow-x:hidden;
+  html,body{min-height:100%}
+  body{font-family:var(--sans);font-size:14px;line-height:1.5;background:var(--background);color:var(--foreground);-webkit-font-smoothing:antialiased}
+  :focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+  a{color:inherit;text-underline-offset:2px}
+  code,.mono{font-family:var(--mono);font-size:12px}
+  svg{flex:none}
+  .ic{width:16px;height:16px}
+  [hidden]{display:none!important}
+  .grow{flex:1}
+  .muted{color:var(--muted-foreground)}
+
+  /* ---- top bar ---- */
+  .top{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:12px;height:var(--top-h);padding:0 20px;
+    background:var(--background);border-bottom:1px solid var(--border)}
+  .brand{display:flex;align-items:center;gap:10px;min-width:0}
+  .brand svg{width:22px;height:25px;fill:currentColor}
+  .brand b{font-family:var(--display);font-size:18px;font-weight:600;letter-spacing:-.01em}
+  .brand span{color:var(--muted-foreground)}
+  .pill{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;border:1px solid var(--border);
+    font-size:12px;font-weight:500;color:var(--muted-foreground);white-space:nowrap}
+  .pill i{width:7px;height:7px;border-radius:50%;background:var(--muted-foreground)}
+  .pill.on{color:var(--foreground)}
+  .pill.on i{background:var(--foreground)}
+  .pill.bad{color:var(--destructive);border-color:color-mix(in srgb,var(--destructive) 40%,transparent)}
+  .pill.bad i{background:var(--destructive)}
+  /* A phone has no room for both: the Service tile says what the pill does. */
+  @media(max-width:560px){.brand span{display:none}}
+  @media(max-width:480px){#servicePill{display:none}}
+  /* The portal's language menu: a ghost button with the flag and the language's own name, and a Menu of them. */
+  .langmenu{position:relative}
+  .chev-sm{width:14px;height:14px;color:var(--muted-foreground)}
+  .menu{position:absolute;right:0;top:calc(100% + 6px);z-index:50;min-width:176px;padding:4px;border:1px solid var(--border);border-radius:var(--radius-xl);
+    background:var(--card);box-shadow:0 10px 30px -10px rgba(0,0,0,.35);display:flex;flex-direction:column}
+  .menu [role=menuitemradio]{display:flex;align-items:center;gap:10px;width:100%;padding:6px 10px;border:0;border-radius:var(--radius-lg);background:none;
+    font:inherit;font-size:14px;color:var(--foreground);text-align:left;cursor:pointer}
+  .menu [role=menuitemradio]:hover,.menu [role=menuitemradio]:focus-visible{background:var(--tint)}
+  .menu [role=menuitemradio]:focus-visible{outline:2px solid var(--foreground);outline-offset:-2px}
+  .menu [role=menuitemradio] .name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .menu [role=menuitemradio][aria-checked=false] .ic{visibility:hidden}
+  .segmented{display:inline-flex;gap:2px;padding:2px;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--card)}
+  .segmented button{font:inherit;font-size:13px;font-weight:500;border:0;cursor:pointer;background:none;color:var(--muted-foreground);height:28px;padding:0 12px;border-radius:var(--radius-md)}
+  .segmented button:hover{background:var(--tint);color:var(--foreground)}
+  .segmented button[aria-pressed=true]{background:var(--primary);color:var(--primary-foreground)}
+
+  /* ---- sidebar and main ---- */
+  .app{display:grid;grid-template-columns:232px minmax(0,1fr);min-height:calc(100vh - var(--top-h))}
+  .side{position:sticky;top:var(--top-h);height:calc(100vh - var(--top-h));display:flex;flex-direction:column;gap:4px;padding:16px 12px;
+    border-right:1px solid var(--border)}
+  .nav{display:flex;flex-direction:column;gap:2px}
+  .nav button{display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border:0;border-radius:var(--radius-lg);background:none;
+    font:inherit;color:var(--muted-foreground);cursor:pointer;text-align:left;white-space:nowrap}
+  .nav button:hover{background:var(--tint);color:var(--foreground)}
+  .nav button[aria-current=page]{background:var(--tint);color:var(--foreground);font-weight:500}
+  .nav .badge{margin-left:auto;width:7px;height:7px;border-radius:50%;background:var(--destructive)}
+  .side-foot{margin-top:auto;padding:10px;font-size:12px;color:var(--muted-foreground);display:flex;flex-direction:column;gap:2px}
+  .side-foot code{color:var(--foreground);overflow-wrap:anywhere}
+  .main{padding:28px 32px 64px;min-width:0}
+  .page{max-width:1080px;margin:0 auto}
+  @media(max-width:860px){
+    .top{padding:0 16px}
+    .app{grid-template-columns:minmax(0,1fr)}
+    .side{position:sticky;height:auto;flex-direction:row;padding:8px 12px;border-right:0;border-bottom:1px solid var(--border);
+      background:var(--background);z-index:10;overflow-x:auto}
+    .nav{flex-direction:row}
+    .side-foot{display:none}
+    .main{padding:20px 16px 56px}
   }
-  /* atmosphere: faint radial wash + grain */
-  body::before{
-    content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
-    background:
-      radial-gradient(900px 600px at 88% -8%,rgba(20,141,152,.12),transparent 60%),
-      radial-gradient(700px 500px at -6% 108%,rgba(67,179,190,.10),transparent 55%);
-  }
-  body::after{
-    content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.5;
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='.03'/%3E%3C/svg%3E");
-  }
 
-  /* ---- language switch (top-right) ---- */
-  .langbar{position:fixed;top:18px;right:22px;z-index:10;display:flex;
-    background:var(--card);border:1px solid var(--line);border-radius:999px;
-    padding:3px;box-shadow:var(--shadow)}
-  .langbar button{font:inherit;font-size:12.5px;font-weight:700;border:0;cursor:pointer;
-    background:none;color:var(--ink-soft);padding:6px 13px;border-radius:999px;
-    letter-spacing:.04em;transition:background .2s,color .2s}
-  .langbar button:hover{color:var(--ink)}
-  .langbar button.active{background:var(--teal);color:#fff}
-  @media(max-width:560px){.langbar{top:12px;right:12px}}
+  /* ---- page head ---- */
+  .head{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px;margin-bottom:20px}
+  .head h1{font-family:var(--display);font-weight:600;font-size:28px;letter-spacing:-.015em;line-height:1.15}
+  .head p{color:var(--muted-foreground);margin-top:4px;max-width:62ch}
+  .head .actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+  .section-title{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:var(--muted-foreground);margin:28px 0 10px}
 
-  .shell{position:relative;z-index:1;max-width:1080px;margin:0 auto;padding:34px 28px 80px}
-  @media(max-width:860px){.shell{padding:26px 20px 60px}}
-  .wrap{display:grid;grid-template-columns:248px 1fr;gap:54px;align-items:start}
-  @media(max-width:860px){.wrap{grid-template-columns:1fr;gap:30px}}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-card)}
+  .card-pad{padding:18px 20px}
+  .card + .card{margin-top:16px}
+  .card h2{font-size:15px;font-weight:600;margin-bottom:4px}
+  .card .sub{color:var(--muted-foreground);margin-bottom:14px}
 
-  /* ---- step rail ---- */
-  .rail{position:sticky;top:34px}
-  @media(max-width:860px){.rail{position:static}}
-  .steps{list-style:none;display:flex;flex-direction:column;gap:2px}
-  @media(max-width:860px){.steps{flex-direction:row;gap:6px;overflow:auto;padding-bottom:4px}}
-  .step{display:flex;gap:13px;align-items:flex-start;padding:12px;border-radius:12px;
-    cursor:pointer;opacity:.5;transition:opacity .2s,background .2s}
-  .step:hover{background:var(--paper-2);opacity:1}
-  .step.active,.step.done{opacity:1}
-  .step.active{background:var(--teal-wash)}
-  @media(max-width:860px){.step{flex-direction:column;align-items:center;
-    min-width:108px;text-align:center;padding:10px 8px}}
-  /* Step indicator circle — strict fixed box in EVERY state/pseudo-class.
-     30x30 with a constant 1.5px border throughout; only colours and the
-     inner glyph ever change, never the geometry. */
-  .dot{box-sizing:border-box;width:30px;height:30px;min-width:30px;min-height:30px;
-    border-radius:50%;border:1.5px solid var(--line);background:var(--card);
-    color:var(--ink-soft);font-size:13.5px;font-weight:700;display:grid;flex:none;
-    transition:border-color .25s ease,background .25s ease,color .25s ease;
-    font-variant-numeric:tabular-nums}
-  /* number and checkmark occupy the same grid cell, so swapping one for the
-     other cannot reflow or resize the circle */
-  .dot>.dot-num,.dot>.dot-check{grid-area:1/1;place-self:center}
-  .dot>.dot-check{width:16px;height:16px;display:none}
-  .step .txt b{font-size:14.5px;font-weight:600;display:block;letter-spacing:-.01em;color:var(--ink)}
-  .step .txt small{font-size:12px;color:var(--ink-soft)}
-  .step.active .dot{border-color:var(--teal);background:var(--teal);color:#fff}
-  .step.active .txt b{color:var(--teal-deep)}
-  /* completed: recolour only, then replace the integer with the SVG check.
-     Deliberately no width/height/margin/padding/font-size rules here. */
-  .step.done .dot{border-color:var(--teal);background:var(--teal-wash);color:var(--teal-deep)}
-  .step.done .dot>.dot-num{display:none}
-  .step.done .dot>.dot-check{display:block}
-
-  /* ---- cloud connection illustration (step 3) ---- */
-  .cloudviz{display:flex;align-items:center;justify-content:center;
-    padding:18px 0 8px}
-  .cv-node{width:66px;height:66px;border-radius:16px;display:grid;place-items:center;
-    flex:none;background:var(--paper-2);border:1px solid var(--line);color:var(--ink-soft)}
-  .cv-node svg{width:30px;height:30px}
-  .cv-node.cloud{border:0;color:#fff;
-    background:linear-gradient(135deg,var(--t5),var(--t7));
-    animation:cvpulse 2.4s ease-in-out infinite}
-  @keyframes cvpulse{0%,100%{box-shadow:0 0 0 7px var(--teal-wash)}
-    50%{box-shadow:0 0 0 13px var(--teal-wash)}}
-  .cv-link{position:relative;width:104px;height:2px;margin:0 10px;
-    background:var(--line);border-radius:2px;overflow:hidden}
-  .cv-link::before{content:"";position:absolute;top:0;bottom:0;width:36%;
-    border-radius:2px;background:linear-gradient(90deg,transparent,var(--teal),transparent);
-    animation:cvflow 1.7s linear infinite}
-  @keyframes cvflow{from{transform:translateX(-120%)}to{transform:translateX(380%)}}
-  .cv-caps{display:flex;justify-content:space-between;font-size:11.5px;
-    font-weight:600;color:var(--ink-soft);letter-spacing:.05em;
-    text-transform:uppercase;margin-top:12px;padding:0 2px}
-
-  /* ---- package install illustration (step 3) ---- */
-  .pkgviz{display:flex;flex-direction:column;align-items:center;justify-content:center;
-    gap:8px;padding:18px 0 8px}
-  .pkg-arrow{color:var(--teal);animation:pkgdrop 1.7s ease-in-out infinite}
-  .pkg-arrow svg{width:24px;height:24px;display:block}
-  @keyframes pkgdrop{0%{transform:translateY(-4px);opacity:0}
-    30%{opacity:1}70%{opacity:1}100%{transform:translateY(10px);opacity:0}}
-  .pkg-box{width:66px;height:66px;border-radius:16px;display:grid;place-items:center;
-    flex:none;color:#fff;background:linear-gradient(135deg,var(--t5),var(--t7));
-    animation:pkgpulse 2.4s ease-in-out infinite}
-  .pkg-box svg{width:30px;height:30px}
-  @keyframes pkgpulse{0%,100%{box-shadow:0 0 0 7px var(--teal-wash);transform:scale(1)}
-    50%{box-shadow:0 0 0 13px var(--teal-wash);transform:scale(1.04)}}
-
-  /* ---- main panel ---- */
-  .stage{min-width:0}
-  .eyebrow{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--teal-deep);
-    font-weight:600;margin-bottom:12px}
-  h1{font-family:"Fraunces",serif;font-weight:500;font-size:clamp(28px,4.4vw,42px);
-    letter-spacing:-.02em;line-height:1.08;margin-bottom:14px}
-  h1 em{font-style:italic;color:var(--teal-deep)}
-  .lede{font-size:16px;color:var(--ink-soft);max-width:54ch;margin-bottom:30px}
-
-  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
-    box-shadow:var(--shadow);overflow:hidden}
-  .card+.card{margin-top:18px}
-  .card-pad{padding:24px 26px}
-
-  .panel{display:none;animation:rise .5s cubic-bezier(.16,.84,.44,1) both}
-  .panel.show{display:block}
-  @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
-
-  /* folder browser */
-  .crumbs{display:flex;align-items:center;gap:5px;flex-wrap:wrap;font-size:13px;
-    padding:14px 20px;border-bottom:1px solid var(--line);background:var(--paper-2);color:var(--ink-soft)}
-  .crumbs button{font:inherit;border:0;background:none;color:var(--teal-deep);cursor:pointer;
-    padding:3px 7px;border-radius:7px;font-weight:600}
-  .crumbs button:hover{background:var(--teal-wash)}
-  .crumbs .sep{opacity:.45}
-  .flist{max-height:300px;overflow:auto}
-  .frow{display:flex;align-items:center;gap:12px;width:100%;border:0;background:none;
-    font:inherit;color:var(--ink);text-align:left;padding:13px 22px;cursor:pointer;
-    border-bottom:1px solid var(--paper-2);transition:background .15s}
-  .frow:hover{background:var(--teal-wash)}
-  .frow svg{width:19px;height:19px;color:var(--t5);flex:none}
-  .frow span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
-  .frow small{color:var(--ink-soft);font-size:12px}
-  .fempty{padding:34px 22px;text-align:center;color:var(--ink-soft);font-size:13.5px}
-  .picked{display:flex;align-items:center;gap:10px;padding:15px 22px;background:var(--teal-wash);
-    border-top:1px solid var(--line);font-size:13.5px}
-  .picked code{font-family:"Hanken Grotesque";font-weight:600;color:var(--teal-deep);
-    background:var(--card);border:1px solid var(--t4);padding:3px 9px;border-radius:7px;
-    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:rtl;text-align:left}
-
-  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:22px}
-  .grow{flex:1;min-width:200px}
-
-  label.fld{display:block;font-size:12.5px;font-weight:600;color:var(--ink);
-    letter-spacing:.02em;margin:0 0 7px}
-  input[type=text]{width:100%;font:inherit;font-size:15px;padding:13px 15px;
-    border:1px solid var(--line);border-radius:11px;background:var(--card);color:var(--ink);
-    transition:border-color .2s,box-shadow .2s}
-  input[type=text]::placeholder{color:var(--t5)}
-  input[type=text]:focus{outline:0;border-color:var(--teal);box-shadow:0 0 0 4px var(--teal-wash)}
-  .code-in{font-family:"Fraunces",serif;font-size:24px;letter-spacing:.22em;text-align:center;
-    font-weight:500;padding:16px;text-transform:uppercase}
-
-  .btn{font:inherit;font-weight:600;font-size:14.5px;border:0;border-radius:11px;
-    padding:13px 24px;cursor:pointer;display:inline-flex;align-items:center;gap:9px;
-    transition:transform .12s,box-shadow .2s,background .2s;letter-spacing:.01em}
-  .btn:active{transform:translateY(1px)}
-  .btn-primary{background:var(--ink);color:var(--t1);box-shadow:var(--shadow)}
-  .btn-primary:hover{background:var(--t8);box-shadow:var(--shadow-lg)}
-  .btn-primary:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
-  .btn-ghost{background:transparent;color:var(--ink-soft);padding:13px 14px}
-  .btn-ghost:hover{color:var(--ink)}
-  .btn .sp{width:15px;height:15px;border:2px solid currentColor;border-right-color:transparent;
-    border-radius:50%;animation:spin .7s linear infinite;display:none}
+  /* ---- buttons, fields ---- */
+  .btn{font:inherit;font-size:14px;font-weight:500;height:36px;padding:0 14px;border-radius:var(--radius-lg);border:0;cursor:pointer;
+    display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;transition:background .15s,opacity .15s}
+  .btn-sm{height:28px;padding:0 10px;font-size:12px}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn-primary{background:var(--primary);color:var(--primary-foreground)}
+  .btn-primary:hover:not(:disabled){opacity:.9}
+  .btn-secondary{background:var(--card);color:var(--foreground);border:1px solid var(--border)}
+  .btn-secondary:hover:not(:disabled){background:var(--tint)}
+  .btn-ghost{background:none;color:var(--foreground)}
+  .btn-ghost:hover:not(:disabled){background:var(--tint)}
+  .btn-danger-outline{background:var(--card);color:var(--destructive);border:1px solid color-mix(in srgb,var(--destructive) 30%,transparent)}
+  .btn-danger-outline:hover:not(:disabled){background:color-mix(in srgb,var(--destructive) 10%,transparent)}
+  .icon-btn{width:28px;height:28px;padding:0;border-radius:var(--radius-md);background:none;border:0;color:var(--muted-foreground);cursor:pointer;display:inline-grid;place-items:center}
+  .icon-btn:hover{background:var(--tint);color:var(--foreground)}
+  .sp{width:14px;height:14px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .7s linear infinite;display:none}
   @keyframes spin{to{transform:rotate(360deg)}}
   .btn.loading .sp{display:inline-block}
-  .btn.loading .lbl{opacity:.7}
-
-  details.adv{margin-top:20px;border-top:1px dashed var(--line);padding-top:16px}
-  details.adv summary{cursor:pointer;font-size:13px;color:var(--ink-soft);font-weight:600;
-    list-style:none;display:inline-flex;align-items:center;gap:7px;user-select:none}
-  details.adv summary::-webkit-details-marker{display:none}
-  details.adv summary .chev{transition:transform .2s}
-  details.adv[open] summary .chev{transform:rotate(90deg)}
-  details.adv .body{margin-top:16px;animation:rise .35s ease both}
+  .btn.loading .ic{display:none}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .row.end{justify-content:flex-end}
+  label.fld{display:block;font-size:13px;font-weight:500;margin:0 0 6px}
+  input[type=text]{width:100%;font:inherit;height:36px;padding:0 12px;border:1px solid var(--input);border-radius:var(--radius-lg);background:var(--card);color:var(--foreground)}
+  input[type=text]::placeholder{color:var(--muted-foreground)}
+  input[type=text]:focus-visible{outline:2px solid var(--primary);outline-offset:0}
+  .code-in{font-family:var(--mono);font-size:22px;height:56px;letter-spacing:.25em;text-align:center;font-weight:600;text-transform:uppercase}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
   @media(max-width:560px){.grid2{grid-template-columns:1fr}}
-  .chk{display:flex;align-items:center;gap:10px;margin-top:18px;font-size:13.5px;
-    color:var(--ink);cursor:pointer}
-  .chk input{width:17px;height:17px;accent-color:var(--teal);flex:none;cursor:pointer}
+  .hint{font-size:13px;color:var(--muted-foreground);margin-top:8px}
+  /* The portal's Switch, with what it turns on beside it. */
+  .switch{display:inline-flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
+  .switch input{appearance:none;width:32px;height:18px;border-radius:999px;background:var(--tint);border:1px solid var(--border);position:relative;cursor:pointer;flex:none;margin:0}
+  .switch input::after{content:"";position:absolute;top:1px;left:1px;width:14px;height:14px;border-radius:50%;background:var(--card);box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s}
+  .switch input:checked{background:var(--primary);border-color:var(--primary)}
+  .switch input:checked::after{transform:translateX(14px);background:var(--primary-foreground)}
+  details.adv{margin-top:14px}
+  details.adv summary{cursor:pointer;font-size:13px;font-weight:500;color:var(--muted-foreground);list-style:none;display:inline-flex;align-items:center;gap:6px;border-radius:var(--radius-md)}
+  details.adv summary:hover{color:var(--foreground)}
+  details.adv summary::-webkit-details-marker{display:none}
+  details.adv summary .chev{transition:transform .2s;width:13px;height:13px}
+  details.adv[open] summary .chev{transform:rotate(90deg)}
+  details.adv .body{margin-top:12px}
 
-  /* activity log (de-scarified terminal) */
-  .log{margin-top:20px;border:1px solid var(--line);border-radius:12px;overflow:hidden;
-    display:none;background:var(--card)}
-  .log.show{display:block;animation:rise .35s ease both}
-  .log-h{display:flex;align-items:center;gap:9px;padding:12px 16px;background:var(--paper-2);
-    border-bottom:1px solid var(--line);font-size:12.5px;font-weight:600;color:var(--ink-soft);
-    letter-spacing:.04em}
-  .log-h .ds{width:8px;height:8px;border-radius:50%;background:var(--t5);
-    animation:pulse 1.1s ease-in-out infinite}
-  @keyframes pulse{50%{opacity:.35}}
-  .log-h.ok .ds{background:var(--teal);animation:none}
-  .log-h.err .ds{background:var(--err);animation:none}
-  .log-b{font-family:"SFMono-Regular",ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;
-    line-height:1.65;color:var(--t8);padding:14px 18px;max-height:230px;overflow:auto;
-    white-space:pre-wrap;word-break:break-word}
-  .log-b:empty::before{content:attr(data-empty);color:var(--t5)}
+  /* ---- guide ---- */
+  .guide{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+  @media(max-width:900px){.guide{grid-template-columns:minmax(0,1fr)}}
+  .gstep{display:flex;flex-direction:column;gap:6px;padding:16px;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--card)}
+  .gstep.done{background:var(--tint-faint)}
+  .gstep .num{width:26px;height:26px;border-radius:50%;border:1px solid var(--border);display:grid;place-items:center;font-size:12px;font-weight:600;color:var(--muted-foreground)}
+  .gstep .num .ic{width:14px;height:14px}
+  .gstep.next .num{background:var(--primary);color:var(--primary-foreground);border-color:var(--primary)}
+  .gstep.done .num{border-color:var(--foreground);color:var(--foreground)}
+  .gstep b{font-weight:600}
+  .gstep p{color:var(--muted-foreground);flex:1}
+  .gstep p code{color:var(--foreground)}
+  .gstep .btn{align-self:flex-start;margin-top:6px}
 
-  .note{display:flex;gap:11px;padding:14px 16px;border-radius:11px;font-size:13.5px;
-    margin-top:18px;align-items:flex-start}
-  .note svg{width:18px;height:18px;flex:none;margin-top:1px}
-  .note.tip{background:var(--paper-2);color:var(--ink-soft)}
-  .note.err{background:var(--err-wash);color:var(--err-ink)}
-  .note.ok{background:var(--teal-wash);color:var(--teal-deep)}
+  /* ---- figures: two rows of three, as the portal's StatsHeader ---- */
+  .tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+  @media(max-width:700px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  .tile{padding:14px 16px;border:1px solid var(--border);border-radius:var(--radius-card);background:var(--card);min-width:0}
+  .tile .k{font-size:12px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:var(--muted-foreground)}
+  .tile .v{font-family:var(--display);font-size:24px;font-weight:600;letter-spacing:-.01em;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tile .v.bad{color:var(--destructive)}
+  .tile .s{font-size:12px;color:var(--muted-foreground);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-  /* done screen */
-  .done-screen{text-align:center;padding:50px 30px}
-  .seal{width:74px;height:74px;border-radius:50%;background:var(--teal);margin:0 auto 24px;
-    display:grid;place-items:center;box-shadow:0 0 0 9px var(--teal-wash);
-    animation:pop .6s cubic-bezier(.2,1.3,.4,1) both}
-  @keyframes pop{0%{transform:scale(0)}60%{transform:scale(1.12)}100%{transform:scale(1)}}
-  .seal svg{width:34px;height:34px;color:#fff}
-  .done-screen h2{font-family:"Fraunces",serif;font-weight:500;font-size:30px;letter-spacing:-.02em;margin-bottom:10px}
-  .done-screen p{color:var(--ink-soft);max-width:42ch;margin:0 auto 26px}
-  .kv{display:inline-grid;grid-template-columns:auto auto;gap:8px 22px;text-align:left;
-    background:var(--paper-2);border:1px solid var(--line);border-radius:12px;padding:18px 26px;margin-bottom:8px}
-  .kv dt{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft);align-self:center}
-  .kv dd{font-family:"Hanken Grotesque";font-weight:600;font-size:14.5px}
-  .kv dd a{color:var(--teal-deep)}
+  /* ---- notes ---- */
+  .notes{display:flex;flex-direction:column;gap:10px}
+  .notes:empty{display:none}
+  .note{display:flex;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:var(--radius-card);background:var(--card);align-items:flex-start;color:var(--muted-foreground)}
+  .note .ic{margin-top:2px;color:var(--foreground)}
+  .note .txt{flex:1;min-width:0}
+  .note.warn{color:var(--foreground)}
+  .note.err{border-color:color-mix(in srgb,var(--destructive) 40%,transparent);color:var(--destructive)}
+  .note.err .ic{color:var(--destructive)}
+  .note code{color:var(--foreground);background:var(--tint);padding:1px 5px;border-radius:var(--radius-md);overflow-wrap:anywhere}
+  .note .row{margin-top:10px}
 
-  .hint{font-size:12.5px;color:var(--ink-soft);margin-top:14px}
-  .skel{height:14px;border-radius:7px;background:linear-gradient(90deg,var(--paper-2),var(--card),var(--paper-2));
-    background-size:200% 100%;animation:sh 1.3s linear infinite}
-  @keyframes sh{to{background-position:-200% 0}}
+  /* ---- fields, as the portal's RecordField rows ---- */
+  .fields{display:grid;grid-template-columns:170px minmax(0,1fr);gap:10px 16px}
+  .fields dt{color:var(--muted-foreground)}
+  .fields dd{min-width:0;overflow-wrap:anywhere;display:flex;align-items:center;gap:4px}
+  @media(max-width:560px){.fields{grid-template-columns:minmax(0,1fr);gap:2px}.fields dd{margin-bottom:8px}}
 
-  /* indeterminate progress bar — preview scan */
-  .pbar{height:8px;border-radius:999px;background:var(--paper-2);overflow:hidden;position:relative}
-  .pbar-fill{position:absolute;top:0;bottom:0;left:0;width:38%;border-radius:999px;
-    background:linear-gradient(90deg,var(--t4),var(--t6));
-    animation:pbar 1.25s ease-in-out infinite}
+  /* ---- folder browser ---- */
+  .browser{border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-top:14px}
+  .crumbs{display:flex;align-items:center;gap:2px;flex-wrap:wrap;padding:8px 12px;border-bottom:1px solid var(--border);color:var(--muted-foreground);background:var(--tint-faint)}
+  .crumbs button{font:inherit;font-weight:500;border:0;background:none;color:var(--foreground);cursor:pointer;padding:2px 8px;border-radius:var(--radius-md)}
+  .crumbs button:hover{background:var(--tint)}
+  .flist{max-height:300px;overflow:auto}
+  .frow{display:flex;align-items:center;gap:12px;width:100%;border:0;background:none;font:inherit;color:var(--foreground);text-align:left;padding:9px 14px;cursor:pointer;border-bottom:1px solid var(--border)}
+  .frow:last-child{border-bottom:0}
+  .frow:hover{background:var(--tint-faint)}
+  .frow .ic{color:var(--muted-foreground)}
+  .frow span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .frow small{color:var(--muted-foreground);font-size:12px}
+  .fempty{padding:28px 16px;text-align:center;color:var(--muted-foreground)}
+  .picked{display:flex;align-items:center;gap:8px;padding:10px 14px;border-top:1px solid var(--border);background:var(--tint-faint);min-width:0}
+  .picked code{background:var(--card);border:1px solid var(--border);padding:2px 8px;border-radius:var(--radius-md);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:rtl;text-align:left;min-width:0}
+  .folders{display:flex;flex-direction:column;margin-top:14px;border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+  .folders:empty{display:none}
+  .fitem{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-bottom:1px solid var(--border)}
+  .fitem:last-child{border-bottom:0}
+  .fitem>.ic{margin-top:2px;color:var(--muted-foreground)}
+  .fitem .main-col{flex:1;min-width:0}
+  .fitem b{font-weight:600}
+  .fitem code{display:block;color:var(--muted-foreground);overflow-wrap:anywhere;margin-top:2px}
+  .fitem .meta{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:12px;color:var(--muted-foreground);margin-top:4px}
+  .fitem .flag{display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 6px;border-radius:var(--radius-md);background:var(--tint);color:var(--foreground);font-weight:500}
+  .fitem .flag.bad{background:color-mix(in srgb,var(--destructive) 12%,transparent);color:var(--destructive)}
+  .fitem p{color:var(--muted-foreground);margin-top:2px}
+  .fitem>.switch{align-self:center;margin-left:8px}
+  .fitem>.btn{align-self:center}
+  .opt{display:inline-flex;align-items:center;height:20px;padding:0 6px;margin-left:4px;border-radius:var(--radius-md);background:var(--tint);color:var(--muted-foreground);font-size:12px;font-weight:500;vertical-align:1px}
+  .switch input:disabled{opacity:.5;cursor:not-allowed}
+  .switch:has(input:disabled){cursor:not-allowed}
+  .icon-btn.danger:hover{color:var(--destructive);background:color-mix(in srgb,var(--destructive) 10%,transparent)}
+
+  /* ---- an action's output, and the log ---- */
+  .out{margin-top:14px;border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+  .out-h{display:flex;align-items:center;gap:8px;padding:6px 12px;background:var(--tint-faint);border-bottom:1px solid var(--border);font-size:12px;font-weight:500;color:var(--muted-foreground)}
+  .out-h i{width:8px;height:8px;border-radius:50%;background:var(--muted-foreground);animation:pulse 1.1s ease-in-out infinite}
+  .out-h.ok i{background:var(--foreground);animation:none}
+  .out-h.err{color:var(--destructive)}
+  .out-h.err i{background:var(--destructive);animation:none}
+  .out pre{font-family:var(--mono);font-size:12px;line-height:1.6;padding:10px 12px;max-height:200px;overflow:auto;white-space:pre-wrap;word-break:break-word}
+  .out pre:empty{display:none}
+  @keyframes pulse{50%{opacity:.3}}
+  .logview{font-family:var(--mono);font-size:12px;line-height:1.65;padding:10px 0;overflow:auto;white-space:pre-wrap;word-break:break-word;background:var(--card)}
+  .logview.tall{height:calc(100vh - 260px);min-height:320px;border:1px solid var(--border);border-radius:var(--radius-card)}
+  .ll{padding:0 14px}
+  .ll:hover{background:var(--tint-faint)}
+  .ll .t,.ll .c{color:var(--muted-foreground)}
+  .ll .lv{display:inline-flex;align-items:center;gap:4px;min-width:7.5ch;font-weight:600;vertical-align:top}
+  .ll .lv .ic{width:12px;height:12px;margin-top:3px}
+  .ll .x{display:block;padding-left:2ch}
+  .ll.ERROR,.ll.ERROR .lv{color:var(--destructive)}
+  .ll.DEBUG{color:var(--muted-foreground)}
+  .logempty{padding:24px 14px;color:var(--muted-foreground);font-family:var(--sans);font-size:14px}
+  .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+  .search{display:flex;align-items:center;gap:6px;height:32px;padding:0 4px 0 10px;border:1px solid var(--input);border-radius:var(--radius-lg);background:var(--card);
+    width:min(260px,100%);color:var(--muted-foreground)}
+  .search:focus-within{outline:2px solid var(--primary);outline-offset:0}
+  .search input{flex:1;min-width:0;border:0;background:none;font:inherit;font-size:13px;color:var(--foreground);outline:none}
+  .search input::placeholder{color:var(--muted-foreground)}
+  .search .icon-btn{width:24px;height:24px}
+  .filter{position:relative}
+  .fbtn{display:inline-flex;align-items:center;gap:6px;height:32px;max-width:100%;padding:0 10px;border:1px solid var(--border);border-radius:var(--radius-lg);
+    background:var(--card);color:var(--muted-foreground);font:inherit;font-size:13px;white-space:nowrap;cursor:pointer}
+  .fbtn:hover{background:var(--tint-faint);color:var(--foreground)}
+  .fbtn.active{border-color:color-mix(in srgb,var(--foreground) 25%,transparent);background:var(--tint);color:var(--foreground)}
+  .fbtn[aria-expanded=true]{border-color:var(--primary)}
+  .fbtn .ic{width:14px;height:14px}
+  .fbtn .fval{font-weight:500;overflow:hidden;text-overflow:ellipsis;max-width:180px}
+  .fbtn.active .flabel{color:var(--muted-foreground)}
+  .fbtn .chev{width:14px;height:14px;opacity:.6}
+  .menu.left{right:auto;left:0}
+  .menu [role=menuitemcheckbox]{display:flex;align-items:center;gap:10px;width:100%;padding:6px 10px;border:0;border-radius:var(--radius-lg);background:none;
+    font:inherit;font-size:14px;color:var(--foreground);text-align:left;cursor:pointer}
+  .menu [role=menuitemcheckbox]:hover,.menu [role=menuitemcheckbox]:focus-visible,.menu .menu-foot button:hover,.menu .menu-foot button:focus-visible{background:var(--tint)}
+  .menu [role=menuitemcheckbox]:focus-visible,.menu .menu-foot button:focus-visible{outline:2px solid var(--foreground);outline-offset:-2px}
+  .menu [role=menuitemcheckbox] .name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .menu [role=menuitemcheckbox] .ic.tick{visibility:hidden}
+  .menu [role=menuitemcheckbox][aria-checked=true] .ic.tick{visibility:visible}
+  .menu .ERROR>.ic:first-child{color:var(--destructive)}
+  .menu .count{font-size:12px;color:var(--muted-foreground);font-variant-numeric:tabular-nums}
+  .menu-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:4px;padding:6px 6px 2px 10px;border-top:1px solid var(--border);font-size:12px;color:var(--muted-foreground)}
+  .menu-foot button{border:0;background:none;font:inherit;font-size:13px;color:var(--foreground);padding:4px 8px;border-radius:var(--radius-md);cursor:pointer}
+
+  /* the preview's figures */
+  .figure{font-family:var(--display);font-size:30px;font-weight:600;letter-spacing:-.01em}
+  .kv{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:14px}
+  @media(max-width:560px){.kv{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  .kv div{padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-lg)}
+  .kv dt{font-size:12px;color:var(--muted-foreground)}
+  .kv dd{font-weight:600;margin-top:2px}
+  .pbar{height:6px;border-radius:999px;background:var(--tint);overflow:hidden;position:relative;margin-top:12px}
+  .pbar-fill{position:absolute;top:0;bottom:0;left:0;width:36%;border-radius:999px;background:var(--foreground);animation:pbar 1.25s ease-in-out infinite}
   @keyframes pbar{from{transform:translateX(-115%)}to{transform:translateX(285%)}}
+  .danger{border-color:color-mix(in srgb,var(--destructive) 30%,transparent)}
+
+  .toast{position:fixed;right:20px;bottom:20px;z-index:50;max-width:380px;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius-xl);
+    background:var(--card);box-shadow:0 8px 24px -12px rgba(0,0,0,.35);opacity:0;transform:translateY(6px);transition:opacity .2s,transform .2s;pointer-events:none}
+  .toast.show{opacity:1;transform:none;pointer-events:auto}
+  .toast{display:flex;gap:10px;align-items:flex-start}
+  .toast .msg{flex:1;min-width:0;overflow-wrap:anywhere}
+  .toast.err{color:var(--destructive)}
+  .view{animation:rise .25s ease both}
+  @keyframes rise{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
-<div class="langbar" id="langbar">
-  <button data-lang="en">EN</button>
-  <button data-lang="el">ΕΛ</button>
-</div>
-<div class="shell">
-  <div class="wrap">
-  <aside class="rail">
-    <ol class="steps" id="rail">
-      <li class="step" data-s="1"><span class="dot"><span class="dot-num">1</span><svg class="dot-check" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="txt"><b data-i18n="s1t">Choose folder</b><small data-i18n="s1d">Files to share</small></span></li>
-      <li class="step" data-s="2"><span class="dot"><span class="dot-num">2</span><svg class="dot-check" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="txt"><b data-i18n="spre_t">Preview files</b><small data-i18n="spre_d">Check what syncs</small></span></li>
-      <li class="step" data-s="3"><span class="dot"><span class="dot-num">3</span><svg class="dot-check" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="txt"><b data-i18n="s2t">Install service</b><small data-i18n="s2d">Runs on startup</small></span></li>
-      <li class="step" data-s="4"><span class="dot"><span class="dot-num">4</span><svg class="dot-check" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="txt"><b data-i18n="s3t">Pair with ViaVeritas</b><small data-i18n="s3d">Enter your code</small></span></li>
-    </ol>
+<header class="top">
+  <div class="brand">
+    <svg viewBox="154.5 25.5 491 560.4" aria-hidden="true"><path d="M587.3667,167.7753v11.155c-14.4685,2.6109-25.4239,7.2342-32.8533,13.8613-10.6562,9.8538-20.098,24.9208-28.3384,45.2183l-142.5769,347.8506h-11.1506L219.3184,233.4906c-7.8371-18.0856-13.3669-29.1365-16.5806-33.1613-5.0223-6.228-11.2027-11.0986-18.5366-14.6203-7.3383-3.513-17.2355-5.7726-29.6916-6.7788v-11.155h166.9946v11.155c-18.8923,1.8086-31.1532,5.0223-36.774,9.6456-5.6295,4.6233-8.4399,10.5478-8.4399,17.782,0,10.0533,4.619,25.7275,13.8656,47.0225l103.9943,239.6406,96.4565-236.622c9.4461-23.3161,14.1692-39.4934,14.1692-48.5318,0-5.829-2.9145-11.4065-8.7435-16.7324-5.829-5.3216-15.6742-9.0905-29.5398-11.3024-1.0062-.1995-2.7107-.4988-5.1221-.9021v-11.155h125.9963Z"/><path d="M520.6329,183.1003l-68.3591,167.6943-103.9943-239.6406c-9.2466-21.295-13.8656-36.9692-13.8656-47.0225,0-7.2342,2.8104-13.1587,8.4399-17.782,5.6208-4.6233,17.8817-7.8371,36.774-9.6456v-11.155h-166.9946v11.155c12.4561,1.0062,22.3533,3.2658,29.6916,6.7788,7.334,3.5217,13.5143,8.3922,18.5366,14.6203,3.2138,4.0248,8.7435,15.0757,16.5806,33.1613l153.129,352.3698h11.1506l103.6193-252.8026-24.7081-7.731Z"/><path d="M519.4941,25.5488v11.155c2.4114.4033,4.1159.7026,5.1221.9021,13.8656,2.2119,23.7108,5.9808,29.5398,11.3024,5.829,5.3259,8.7435,10.9034,8.7435,16.7324,0,9.0385-4.7231,25.2157-14.1692,48.5318l-10.86,26.6432h27.9698l18.4586-45.0324c8.2404-20.2975,17.6822-35.3645,28.3384-45.2183,7.4294-6.627,18.3849-11.2504,32.8533-13.8613v-11.155h-125.9963Z"/></svg>
+    <b>ViaVeritas</b><span data-i18n="brand_sub">Bridge</span>
+  </div>
+  <span class="pill" id="servicePill"><i></i><span></span></span>
+  <div class="grow"></div>
+  <div class="langmenu">
+    <button type="button" class="btn btn-ghost btn-sm" id="langBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="langList">
+      <span aria-hidden="true" id="langFlag"></span><span id="langName"></span><i data-icon="chevronDown" class="chev-sm"></i>
+    </button>
+    <div class="menu" id="langList" role="menu" hidden></div>
+  </div>
+</header>
+
+<div class="app">
+  <aside class="side">
+    <nav class="nav" id="nav" aria-label="Sections">
+      <button type="button" data-view="overview"><i data-icon="dashboard"></i><span data-i18n="nav_overview">Overview</span></button>
+      <button type="button" data-view="folder"><i data-icon="folder"></i><span data-i18n="nav_folder">Folders</span><span class="badge" id="badgeFolder" hidden></span></button>
+      <button type="button" data-view="connection"><i data-icon="cloud"></i><span data-i18n="nav_connection">Connection</span><span class="badge" id="badgeConnection" hidden></span></button>
+      <button type="button" data-view="features"><i data-icon="toggle"></i><span data-i18n="nav_features">Features</span><span class="badge" id="badgeFeatures" hidden></span></button>
+      <button type="button" data-view="activity"><i data-icon="terminal"></i><span data-i18n="nav_activity">Activity</span><span class="badge" id="badgeActivity" hidden></span></button>
+      <button type="button" data-view="settings"><i data-icon="sliders"></i><span data-i18n="nav_settings">Settings</span></button>
+    </nav>
+    <div class="side-foot">
+      <span id="footVersion"></span>
+      <span><span data-i18n="installed_in">Installed in</span> <code id="footDir"></code></span>
+    </div>
   </aside>
 
-  <main class="stage">
-    <!-- STEP 1 -->
-    <section class="panel" id="p1">
-      <div class="eyebrow" data-i18n="step1of4">Step 1 of 4</div>
-      <h1 data-i18n-html="p1_h">Pick the folder you want to <em>share</em>.</h1>
-      <p class="lede" data-i18n="p1_lede">ViaVeritas will keep these files in sync with your clinic's account. Browse to the folder — you can also create a new one.</p>
-      <div class="card">
-        <div class="crumbs" id="crumbs"></div>
-        <div class="flist" id="flist"></div>
-        <div class="picked" id="picked" style="display:none">
-          <svg viewBox="0 0 24 24" fill="none" width="18" height="18"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <span><span data-i18n="selected">Selected:</span> <code id="pickedPath"></code></span>
+  <main class="main"><div class="page">
+
+    <!-- OVERVIEW -->
+    <section class="view" data-section="overview">
+      <div class="head">
+        <div><h1 data-i18n="ov_h">Overview</h1><p data-i18n="ov_p">This computer, connected to your organization in ViaVeritas.</p></div>
+        <div class="actions">
+          <button class="btn btn-secondary" data-act="refresh"><i data-icon="refresh"></i><span class="sp"></span><span data-i18n="refresh">Refresh</span></button>
+          <button class="btn btn-secondary" data-act="restart" id="ovRestart"><i data-icon="power"></i><span class="sp"></span><span data-i18n="restart">Restart</span></button>
         </div>
       </div>
-      <details class="adv" id="cfgAdv">
-        <summary><svg class="chev" viewBox="0 0 24 24" width="13" height="13" fill="none"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg> <span data-i18n="adv">Advanced settings</span></summary>
-        <div class="body">
-          <div class="grid2">
-            <div><label class="fld" for="cfgBridgePort" data-i18n="f_bridge">Bridge API port</label><input type="text" id="cfgBridgePort" inputmode="numeric" autocomplete="off" data-i18n-ph="ph_bridge" placeholder="Auto (6500–7500)"></div>
-            <div><label class="fld" for="cfgScanInterval" data-i18n="f_scan">Sync check interval (seconds)</label><input type="text" id="cfgScanInterval" inputmode="numeric" autocomplete="off" placeholder="15"></div>
-          </div>
-          <div class="grid2" style="margin-top:16px">
-            <div><label class="fld" for="cfgLogDir" data-i18n="f_log">Log folder</label><input type="text" id="cfgLogDir" autocomplete="off" spellcheck="false" data-i18n-ph="ph_log" placeholder="Default (next to the program)"></div>
-          </div>
-          <label class="chk"><input type="checkbox" id="cfgHidden"><span data-i18n="chk_hidden">Include hidden files and folders (dotfiles) in the sync</span></label>
-          <p class="hint" data-i18n="adv_hint">Leave these as-is unless ViaVeritas support asked you to change them. Empty fields keep the current or automatic value.</p>
+
+      <div id="guide" class="card card-pad" hidden>
+        <h2 data-i18n="guide_h">Set up this bridge</h2>
+        <p class="sub" data-i18n="guide_p">Two steps, once. After that it runs by itself, even after the computer restarts.</p>
+        <div class="guide">
+          <div class="gstep" id="gInstall"><span class="num">1</span><b data-i18n="g2_t">Install it</b><p id="g2p"></p><button class="btn btn-secondary btn-sm" data-act="install"><span class="sp"></span><span data-i18n="g2_b">Install</span></button></div>
+          <div class="gstep" id="gPair"><span class="num">2</span><b data-i18n="g3_t">Pair with ViaVeritas</b><p data-i18n="g3_p">In ViaVeritas, Bridges › Pair a bridge gives a code to enter here.</p><button class="btn btn-secondary btn-sm" data-go="connection" data-i18n="g3_b">Pair</button></div>
+          <div class="gstep" id="gFolder"><span class="num">3</span><b><span data-i18n="g1_t">Choose folders to sync</span> <span class="opt" data-i18n="g_optional">Optional</span></b><p data-i18n="g1_p">Only if your team should reach files on this computer from ViaVeritas: as many as you like, none inside another. You can add them any time.</p><button class="btn btn-secondary btn-sm" data-go="folder" data-i18n="g1_b">Choose</button></div>
         </div>
-      </details>
-      <div class="row">
-        <button class="btn btn-ghost" id="newFolderBtn" data-i18n="btn_newfolder">＋ New folder here</button>
-        <div style="flex:1"></div>
-        <button class="btn btn-primary" id="b1" disabled><span class="sp"></span><span class="lbl" data-i18n="btn_save">Save &amp; continue</span></button>
       </div>
-      <div class="log" id="log1"><div class="log-h" id="log1h"><span class="ds"></span><span data-i18n="log1">Saving configuration</span></div><div class="log-b" id="log1b"></div></div>
-      <div class="note tip">
-        <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.7"/><path d="M12 11v5M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        <span data-i18n="note_tip">The folder stays on this computer. ViaVeritas only mirrors it so your team can reach the files from the CRM.</span>
-      </div>
+
+      <div class="notes" id="alerts" style="margin-top:16px"></div>
+
+      <div class="section-title" data-i18n="ov_figures">Now</div>
+      <div class="tiles" id="tiles"></div>
+
     </section>
 
-    <!-- STEP 2 — preview -->
-    <section class="panel" id="ppre">
-      <div class="eyebrow" data-i18n="step2of4">Step 2 of 4</div>
-      <h1 data-i18n-html="ppre_h">Preview what will <em>sync</em>.</h1>
-      <p class="lede" data-i18n="ppre_lede">A quick local scan — no files are uploaded and the ViaVeritas API isn't contacted yet.</p>
-      <div class="card card-pad" id="preCard">
-        <div id="preScan">
-          <div style="display:flex;align-items:center;gap:11px;color:var(--ink-soft);font-size:14px">
-            <span class="sp" style="display:inline-block;border-color:var(--ink-soft);border-right-color:transparent;width:16px;height:16px"></span>
-            <span data-i18n="pre_scanning">Scanning your folder…</span>
-          </div>
-          <div class="pbar" style="margin-top:16px"><div class="pbar-fill"></div></div>
-          <p class="hint" id="preCount" style="margin-top:8px"></p>
-        </div>
-        <div id="preBody" style="display:none">
-          <div style="font-family:'Fraunces',serif;font-size:30px;font-weight:600;color:var(--teal-deep);letter-spacing:-.01em">
-            <span id="preTotal">0</span> <span id="preTotalLbl" data-i18n="pre_files">files will sync</span>
-          </div>
-          <p id="preMsg" style="color:var(--ink-soft);font-size:13.5px;margin-top:6px"></p>
-          <p id="preIdxHint" class="hint" style="display:none" data-i18n="pre_idx_hint">These files are already recorded locally as synced. If they're missing in ViaVeritas, use “Force full re-sync” to send them all again.</p>
-          <p id="preSkipHint" class="hint" style="display:none;color:var(--err-ink)"></p>
-          <dl class="kv" style="margin-top:18px">
-            <dt data-i18n="pre_k_mode">Sync type</dt><dd id="preMode">—</dd>
-            <dt data-i18n="pre_k_new">New</dt><dd id="preNew">0</dd>
-            <dt data-i18n="pre_k_changed">Changed</dt><dd id="preChanged">0</dd>
-            <dt data-i18n="pre_k_removed">Removed</dt><dd id="preRemoved">0</dd>
-          </dl>
-        </div>
-        <div id="preErr" class="note err" style="display:none;margin-top:0">
-          <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.7"/><path d="M12 8v5M12 16h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-          <span id="preErrMsg"></span>
-        </div>
-      </div>
-      <div class="row">
-        <button class="btn btn-ghost" id="preBack" data-i18n="back">← Back</button>
-        <div style="flex:1"></div>
-        <button class="btn btn-ghost" id="preResync"><span class="sp"></span><span class="lbl" data-i18n="pre_resync">Force full re-sync</span></button>
-        <button class="btn btn-ghost" id="preRefresh" data-i18n="pre_rescan">Rescan</button>
-        <button class="btn btn-primary" id="preGo"><span class="lbl" data-i18n="btn_pre_continue">Looks good — continue</span></button>
-      </div>
-    </section>
+    <!-- FOLDER -->
+    <section class="view" data-section="folder" hidden>
+      <div class="head"><div><h1 data-i18n="fo_h">Folders</h1><p data-i18n="fo_p">What this bridge keeps in sync. They stay on this computer; ViaVeritas mirrors them for your team.</p></div></div>
 
-    <!-- STEP 3 — install -->
-    <section class="panel" id="p2">
-      <div class="eyebrow" data-i18n="step3of4">Step 3 of 4</div>
-      <h1 data-i18n-html="p2_h">Install the <em>background service</em>.</h1>
-      <p class="lede" data-i18n="p2_lede">This registers ViaVeritas Bridge to start automatically whenever this computer boots — so sharing keeps working after restarts. It also downloads the file server it needs.</p>
       <div class="card card-pad">
-        <div class="pkgviz">
-          <div class="pkg-arrow">
-            <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v10m0 0 4-4m-4 4-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div class="row"><div class="grow"><h2 data-i18n="fo_list">Synced folders</h2><p class="sub" style="margin:0" data-i18n="fo_list_p">Each is a folder of its own inside the bridge's folder in Files. None may be inside another.</p></div>
+          <button class="btn btn-primary btn-sm" id="foAdd"><i data-icon="plus"></i><span data-i18n="fo_add">Add a folder</span></button></div>
+        <div class="folders" id="foList"></div>
+        <p class="muted" id="foEmpty" style="margin-top:14px" hidden data-i18n="fo_empty">No folder is synced. Add one if your team should reach files on this computer from ViaVeritas; the bridge works without.</p>
+        <div id="filesOff" class="note warn" style="margin-top:14px" hidden><i data-icon="alert"></i><span class="txt" id="filesOffText"></span></div>
+        <div id="browserBox" hidden>
+          <h2 style="margin-top:18px" data-i18n="fo_add_h">Add a folder</h2>
+          <div class="browser">
+            <div class="crumbs" id="crumbs"></div>
+            <div class="flist" id="flist"></div>
+            <div class="picked" id="picked" hidden><i data-icon="check"></i><span data-i18n="selected">Selected:</span> <code id="pickedPath"></code></div>
           </div>
-          <div class="pkg-box">
-            <svg viewBox="0 0 24 24" fill="none"><path d="M3.3 7.3 12 12l8.7-4.7M12 12v9.2M3.3 7.3 12 2.8l8.7 4.5v9.4L12 21.2 3.3 16.7V7.3Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <div id="pickProblem" class="note err" style="margin-top:12px" hidden><i data-icon="alert"></i><span class="txt" id="pickProblemText"></span></div>
+          <div id="pickProtected" class="note warn" style="margin-top:12px" hidden><i data-icon="alert"></i><span class="txt" id="pickProtectedText"></span></div>
+          <div style="margin-top:12px;max-width:360px"><label class="fld" for="foName" data-i18n="fo_name">Its name in Files</label>
+            <input type="text" id="foName" autocomplete="off" spellcheck="false"><p class="hint" data-i18n="fo_name_hint">Empty: the folder's own name.</p></div>
+          <div class="row" style="margin-top:12px">
+            <button class="btn btn-ghost" id="newFolderBtn"><i data-icon="plus"></i><span data-i18n="btn_newfolder">New folder here</span></button>
+            <span class="grow"></span>
+            <button class="btn btn-ghost" id="foCancel" data-i18n="cancel">Cancel</button>
+            <button class="btn btn-primary" id="foSave" disabled><span class="sp"></span><span class="lbl" data-i18n="fo_save">Sync this folder</span></button>
           </div>
-        </div>
-        <div style="text-align:center;margin-top:16px">
-          <b style="font-size:15px;display:block" data-i18n="onetime">One-time install</b>
-          <small style="color:var(--ink-soft);font-size:13px" data-i18n="onetime_d">Takes about a minute. Leave this window open.</small>
-        </div>
-      </div>
-      <div class="row">
-        <button class="btn btn-ghost" id="back2" data-i18n="back">← Back</button>
-        <div style="flex:1"></div>
-        <button class="btn btn-ghost" id="bUninstall" style="display:none"><span class="sp"></span><span class="lbl" data-i18n="btn_uninstall">Uninstall service</span></button>
-        <button class="btn btn-primary" id="b2"><span class="sp"></span><span class="lbl" data-i18n="btn_install">Install now</span></button>
-      </div>
-      <div class="log" id="log2"><div class="log-h" id="log2h"><span class="ds"></span><span data-i18n="log2">Installing service</span></div><div class="log-b" id="log2b"></div></div>
-      <div class="log" id="log2u"><div class="log-h" id="log2uh"><span class="ds"></span><span data-i18n="loguninstall">Removing service</span></div><div class="log-b" id="log2ub"></div></div>
-    </section>
-
-    <!-- STEP 4 — pair -->
-    <section class="panel" id="p3">
-      <div class="eyebrow" data-i18n="step4of4">Step 4 of 4</div>
-
-      <!-- already-paired view (shown only when this bridge is linked) -->
-      <div id="p3paired" style="display:none">
-        <h1 data-i18n-html="p3p_h">This bridge is <em>already paired</em>.</h1>
-        <p class="lede" data-i18n="p3p_lede">It's linked to your clinic's ViaVeritas account — there's nothing more to do here unless you want to link it to a different clinic.</p>
-        <div class="card card-pad" style="margin-bottom:18px">
-          <div class="cloudviz">
-            <div class="cv-node">
-              <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="12" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M9 20h6M12 16v4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
-            </div>
-            <div class="cv-link"></div>
-            <div class="cv-node cloud">
-              <svg viewBox="0 0 24 24" fill="none"><path d="M7.5 19a4.5 4.5 0 0 1-.6-8.96 5.5 5.5 0 0 1 10.64-1.2A4 4 0 0 1 17.5 19h-10Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M10 13.5l1.6 1.6L14.5 12" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </div>
-          </div>
-          <div class="cv-caps"><span data-i18n="cv_pc">This computer</span><span>ViaVeritas</span></div>
-        </div>
-        <div class="note ok">
-          <svg viewBox="0 0 24 24" fill="none"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <span data-i18n="note_ok">Paired with ViaVeritas. Re-pairing is only needed to move this bridge to another clinic or after the clinic resets its code.</span>
-        </div>
-        <dl class="kv" style="margin-top:18px">
-          <dt data-i18n="bridgeid">Bridge ID</dt><dd id="pBridge">—</dd>
-          <dt data-i18n="api_name">ViaVeritas API</dt><dd id="pApi">—</dd>
-          <dt data-i18n="reachable">Reachable at</dt><dd id="pUrl">—</dd>
-        </dl>
-        <div class="row">
-          <button class="btn btn-ghost" id="back3p" data-i18n="back">← Back</button>
-          <div style="flex:1"></div>
-          <button class="btn btn-ghost" id="rePair" data-i18n="repair">Re-pair this bridge…</button>
-          <button class="btn btn-primary" id="p3continue"><span class="lbl" data-i18n="continue_ok">Looks good — continue</span></button>
         </div>
       </div>
 
-      <!-- pairing form (default; unchanged for the not-paired flow) -->
-      <div id="p3form">
-        <div class="card card-pad" style="margin-bottom:18px">
-          <div class="cloudviz">
-            <div class="cv-node">
-              <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="12" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M9 20h6M12 16v4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
-            </div>
-            <div class="cv-link"></div>
-            <div class="cv-node cloud">
-              <svg viewBox="0 0 24 24" fill="none"><path d="M7.5 19a4.5 4.5 0 0 1-.6-8.96 5.5 5.5 0 0 1 10.64-1.2A4 4 0 0 1 17.5 19h-10Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M10 13.5l1.6 1.6L14.5 12" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </div>
-          </div>
-          <div class="cv-caps"><span data-i18n="cv_pc">This computer</span><span>ViaVeritas</span></div>
-        </div>
-        <h1 data-i18n-html="p3_h">Enter your <em>pairing code</em>.</h1>
-        <p class="lede" data-i18n="p3_lede">Find the code in your ViaVeritas CRM under clinic settings. This links this bridge to your clinic's account.</p>
-        <div class="card card-pad">
-          <label class="fld" for="code" data-i18n="lbl_code">Pairing code</label>
-          <input type="text" id="code" class="code-in" placeholder="ABCD-1234" autocomplete="off" spellcheck="false" maxlength="32">
-          <details class="adv">
-            <summary><svg class="chev" viewBox="0 0 24 24" width="13" height="13" fill="none"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg> <span data-i18n="adv">Advanced settings</span></summary>
-            <div class="body">
-              <label class="fld" for="apiUrl" data-i18n="lbl_apiurl">ViaVeritas API URL</label>
-              <input type="text" id="apiUrl" placeholder="https://api.viaveritas.app" autocomplete="off" spellcheck="false">
-              <p class="hint" data-i18n="api_hint">Leave this as-is unless ViaVeritas support told you otherwise.</p>
-            </div>
-          </details>
-        </div>
-        <div class="row">
-          <button class="btn btn-ghost" id="back3" data-i18n="back">← Back</button>
-          <div style="flex:1"></div>
-          <button class="btn btn-primary" id="b3" disabled><span class="sp"></span><span class="lbl" data-i18n="btn_pair">Pair &amp; finish</span></button>
-        </div>
-        <div class="log" id="log3"><div class="log-h" id="log3h"><span class="ds"></span><span data-i18n="log3">Pairing with ViaVeritas</span></div><div class="log-b" id="log3b"></div></div>
-      </div>
-    </section>
-
-    <!-- DONE -->
-    <section class="panel" id="pdone">
-      <div class="card">
-        <div class="done-screen">
-          <div class="seal"><svg viewBox="0 0 24 24" fill="none"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-          <h2 data-i18n="done_h">Your clinic is connected.</h2>
-          <p data-i18n="done_p">ViaVeritas Bridge is running and will keep your files in sync automatically — even after this computer restarts.</p>
+      <div class="card card-pad" id="preCard">
+        <div class="row"><div class="grow"><h2 data-i18n="pre_h">The next sync</h2><p class="sub" style="margin:0" data-i18n="pre_p">A scan on this computer: nothing is sent and ViaVeritas isn't asked.</p></div>
+          <button class="btn btn-secondary btn-sm" id="preRefresh"><i data-icon="refresh"></i><span data-i18n="pre_rescan">Scan again</span></button></div>
+        <div id="preScan" style="margin-top:14px"><span class="muted" data-i18n="pre_scanning">Scanning the folder…</span><div class="pbar"><div class="pbar-fill"></div></div><p class="hint" id="preCount"></p></div>
+        <div id="preBody" hidden style="margin-top:14px">
+          <div class="figure"><span id="preTotal">0</span> <span id="preTotalLbl" style="font-family:var(--sans);font-size:15px;font-weight:500"></span></div>
+          <p id="preMsg" class="muted"></p>
           <dl class="kv">
-            <dt data-i18n="bridgeid">Bridge ID</dt><dd id="dBridge">—</dd>
-            <dt data-i18n="sharing">Sharing</dt><dd id="dData">—</dd>
-            <dt data-i18n="reachable">Reachable at</dt><dd id="dUrl">—</dd>
+            <div><dt data-i18n="pre_k_mode">Sync type</dt><dd id="preMode">—</dd></div>
+            <div><dt data-i18n="pre_k_new">New</dt><dd id="preNew">0</dd></div>
+            <div><dt data-i18n="pre_k_changed">Changed</dt><dd id="preChanged">0</dd></div>
+            <div><dt data-i18n="pre_k_removed">Removed</dt><dd id="preRemoved">0</dd></div>
           </dl>
-          <p class="hint" data-i18n="done_hint">You can close this window. The service runs on its own from now on.</p>
-          <button class="btn btn-ghost" id="startOver" style="margin-top:18px" data-i18n="startover">↺ Reconfigure / start over</button>
-          <button class="btn btn-ghost" id="dUninstall" style="margin-top:6px"><span class="sp"></span><span class="lbl" data-i18n="btn_uninstall">Uninstall service</span></button>
-          <div class="log" id="logdu" style="text-align:left"><div class="log-h" id="logduh"><span class="ds"></span><span data-i18n="loguninstall">Removing service</span></div><div class="log-b" id="logdub"></div></div>
+          <p id="preIdxHint" class="hint" hidden data-i18n="pre_idx_hint">These files are recorded here as synced already. If ViaVeritas is missing them, send everything again.</p>
+          <p id="preSkipHint" class="hint" hidden style="color:var(--destructive)"></p>
+        </div>
+        <div id="preErr" class="note err" hidden style="margin-top:14px"><i data-icon="alert"></i><span class="txt" id="preErrMsg"></span></div>
+        <div class="row" style="margin-top:14px">
+          <button class="btn btn-secondary" data-act="resync"><i data-icon="upload"></i><span class="sp"></span><span data-i18n="pre_resync">Send everything again</span></button>
         </div>
       </div>
     </section>
-  </main>
-  </div>
+
+    <!-- CONNECTION -->
+    <section class="view" data-section="connection" hidden>
+      <div class="head"><div><h1 data-i18n="co_h">Connection</h1><p data-i18n="co_p">How this bridge and ViaVeritas reach each other.</p></div></div>
+
+      <div class="card card-pad" id="coPaired" hidden>
+        <h2 data-i18n="co_paired">Paired with ViaVeritas</h2>
+        <p class="sub" data-i18n="co_paired_p">Your team opens its files straight from this computer, on your network.</p>
+        <dl class="fields" id="coFields"></dl>
+        <div class="row" style="margin-top:16px"><button class="btn btn-secondary" id="rePair" data-i18n="repair">Pair again…</button></div>
+      </div>
+
+      <div class="card card-pad" id="coForm">
+        <h2 data-i18n="p3_h">Enter the pairing code</h2>
+        <p class="sub" data-i18n="p3_lede">In ViaVeritas, open Bridges and choose Pair a bridge: the code shows there for 15 minutes. It links this bridge to your organization.</p>
+        <label class="fld" for="code" data-i18n="lbl_code">Pairing code</label>
+        <input type="text" id="code" class="code-in" placeholder="ABCD1234" autocomplete="off" spellcheck="false" maxlength="32">
+        <details class="adv">
+          <summary><i data-icon="chevron" class="chev"></i><span data-i18n="adv">Advanced settings</span></summary>
+          <div class="body">
+            <label class="fld" for="apiUrl" data-i18n="lbl_apiurl">ViaVeritas API address</label>
+            <input type="text" id="apiUrl" placeholder="https://api.viaveritas.app" autocomplete="off" spellcheck="false">
+            <p class="hint" data-i18n="api_hint">Leave it as it is unless ViaVeritas gave you another address.</p>
+          </div>
+        </details>
+        <div class="row end" style="margin-top:14px">
+          <button class="btn btn-ghost" id="pairCancel" hidden data-i18n="cancel">Cancel</button>
+          <button class="btn btn-primary" id="pairBtn" disabled><span class="sp"></span><span data-i18n="btn_pair">Pair</span></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- FEATURES -->
+    <section class="view" data-section="features" hidden>
+      <div class="head"><div><h1 data-i18n="fe_h">Features</h1><p data-i18n="fe_p">What this bridge does on this computer. Each runs only while it is on here and in ViaVeritas: switched off here, ViaVeritas can't turn it on.</p></div></div>
+
+      <div class="card card-pad">
+        <h2 data-i18n="fe_list">What it does</h2>
+        <p class="sub" data-i18n="fe_list_p">Your organization's admins can switch these off for this bridge in ViaVeritas too.</p>
+        <div id="feVersion" class="note" style="margin-bottom:14px" hidden><i data-icon="info"></i><span class="txt" id="feVersionText"></span></div>
+        <div class="folders" id="feList"></div>
+      </div>
+
+      <div class="card card-pad" id="upCard">
+        <h2 data-i18n="up_h">Updates</h2>
+        <p class="sub" data-i18n="up_p">A new version runs only once it checks out against ViaVeritas's signature. If it doesn't reach ViaVeritas within two minutes, the version before goes back in place.</p>
+        <div class="row" style="margin-bottom:14px"><span class="grow" data-i18n="up_s_ask">It updates only when someone asks, in ViaVeritas or here.</span></div>
+        <div class="row"><span class="grow muted" id="upState"></span>
+          <button type="button" class="btn btn-secondary btn-sm" id="upNow" hidden><span class="sp"></span><span class="lbl"></span></button>
 </div>
+      </div>
+
+      <div class="card card-pad" id="ssCard">
+        <h2 data-i18n="ss_h">Terminals and commands</h2>
+        <p class="sub" data-i18n="ss_p">What ViaVeritas opens on this computer, once Terminal is on above. It never keeps a password: it runs as who you choose here.</p>
+        <div class="grid2">
+          <div><label class="fld" id="ssRunAsLabel" data-i18n="ss_runas">They run as</label>
+            <div class="segmented" id="ssRunAs" role="group" aria-labelledby="ssRunAsLabel">
+              <button type="button" data-runas="user" aria-pressed="true" data-i18n="ss_user">The person signed in</button>
+              <button type="button" data-runas="system" aria-pressed="false" data-i18n="ss_system">The administrator</button>
+            </div>
+            <p class="muted" id="ssRunAsHint" style="margin:8px 0 0;font-size:13px"></p></div>
+          <div><label class="switch" style="margin-top:26px"><input type="checkbox" id="ssNotices"><span data-i18n="ss_notices">Say it on this computer's screen when one starts</span></label></div>
+        </div>
+      </div>
+
+      <div class="card card-pad" id="lgCard">
+        <h2 data-i18n="lg_h">Logs ViaVeritas may read</h2>
+        <p class="sub" data-i18n="lg_p">What ViaVeritas may read live, once Logs is on above: the bridge's own log, and what you add here. Nothing it reads is kept.</p>
+        <div class="folders" id="lgList"></div>
+        <div style="margin-top:14px"><label class="fld" id="lgKindLabel" data-i18n="lg_kind">Add</label>
+          <div class="segmented" id="lgKind" role="group" aria-labelledby="lgKindLabel"></div></div>
+        <div class="grid2" style="margin-top:14px">
+          <div><label class="fld" for="lgTarget" id="lgTargetLabel"></label>
+            <input type="text" id="lgTarget" autocomplete="off" spellcheck="false"><p class="hint" id="lgTargetHint"></p></div>
+          <div><label class="fld" for="lgName" data-i18n="lg_name">What it is (optional)</label>
+            <input type="text" id="lgName" autocomplete="off" maxlength="80"></div>
+        </div>
+        <div class="row" style="margin-top:14px"><span class="grow"></span>
+          <button type="button" class="btn btn-primary btn-sm" id="lgAdd"><span class="sp"></span><span data-i18n="lg_add">Share it</span></button></div>
+      </div>
+
+      <div class="card card-pad" id="fePauseCard" hidden>
+        <div class="row"><div class="grow"><h2 data-i18n="fe_pause_h">Remote access</h2><p class="sub" style="margin:0" data-i18n="fe_pause_p">Pausing ends what ViaVeritas has open on this computer and lets nothing new open, whatever the switches say, until you resume it.</p></div>
+          <label class="switch"><input type="checkbox" id="fePause"><span data-i18n="fe_pause">Pause all remote access</span></label></div>
+      </div>
+
+      <div class="card card-pad">
+        <div class="row"><div class="grow"><h2 data-i18n="fe_open_h">Open from ViaVeritas now</h2><p class="sub" style="margin:0" data-i18n="fe_open_p">What ViaVeritas has open on this computer, and who opened it. Ending one closes it at once.</p></div></div>
+        <div class="folders" id="feStreams"></div>
+        <p class="muted" id="feStreamsEmpty" style="margin-top:14px" data-i18n="fe_open_none">Nothing is open on this computer from ViaVeritas.</p>
+        <div id="feNotRunning" class="note" style="margin-top:14px" hidden><i data-icon="info"></i><span class="txt" data-i18n="fe_not_running">The service isn't running, so nothing is open. It runs once the bridge is installed.</span></div>
+      </div>
+    </section>
+
+    <!-- ACTIVITY -->
+    <section class="view" data-section="activity" hidden>
+      <div class="head"><div><h1 data-i18n="ac_h">Activity</h1><p id="acPath"></p></div></div>
+      <div class="toolbar" role="group" data-i18n-aria="ac_filters" aria-label="Filters">
+        <label class="search"><i data-icon="search"></i><input type="text" id="logQuery" autocomplete="off" spellcheck="false" data-i18n-ph="ac_search" placeholder="Search the log">
+          <button type="button" class="icon-btn" id="logQueryClear" hidden data-i18n-aria="ac_search_clear" aria-label="Clear the search"><i data-icon="x"></i></button></label>
+        <div class="filter" id="levelFilter"></div>
+        <div class="filter" id="sourceFilter"></div>
+        <button type="button" class="btn btn-ghost btn-sm" id="logClear" hidden data-i18n="ac_clear">Clear filters</button>
+        <span class="grow"></span>
+        <button class="btn btn-secondary btn-sm" id="logCopy"><i data-icon="copy"></i><span data-i18n="ac_copy">Copy</span></button>
+      </div>
+      <div class="logview tall" id="logTall" tabindex="0"></div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="view" data-section="settings" hidden>
+      <div class="head"><div><h1 data-i18n="se_h">Settings</h1><p data-i18n="se_p">Leave these as they are unless ViaVeritas asked you to change them.</p></div></div>
+
+      <div class="card card-pad">
+        <h2 data-i18n="se_sync">Sync</h2>
+        <p class="sub" data-i18n="se_sync_p">Empty fields keep the current or automatic value. Saving restarts the service.</p>
+        <div class="grid2">
+          <div><label class="fld" for="cfgBridgePort" data-i18n="f_bridge">Port on the network</label><input type="text" id="cfgBridgePort" inputmode="numeric" autocomplete="off" data-i18n-ph="ph_bridge" placeholder="Auto (6500–7500)"></div>
+          <div><label class="fld" for="cfgScanInterval" data-i18n="f_scan">Check for changes every (seconds)</label><input type="text" id="cfgScanInterval" inputmode="numeric" autocomplete="off" placeholder="15"></div>
+        </div>
+        <div class="grid2" style="margin-top:14px">
+          <div><label class="fld" for="cfgLogDir" data-i18n="f_log">Log folder</label><input type="text" id="cfgLogDir" autocomplete="off" spellcheck="false" data-i18n-ph="ph_log" placeholder="Default (in the install folder)"></div>
+        </div>
+        <label class="switch" style="margin-top:16px"><input type="checkbox" id="cfgHidden"><span data-i18n="chk_hidden">Sync hidden files and folders (names starting with a dot)</span></label>
+        <div class="row end" style="margin-top:14px"><button class="btn btn-primary" id="cfgSave"><span class="sp"></span><span data-i18n="save">Save</span></button></div>
+      </div>
+
+      <div class="card card-pad">
+        <h2 data-i18n="se_install">Installation</h2>
+        <p class="sub" id="seInstallP"></p>
+        <dl class="fields" id="seFields"></dl>
+        <div id="seState" class="note" style="margin-top:14px"><i data-icon="info"></i><span class="txt" id="seStateText"></span></div>
+        <div class="row" style="margin-top:16px">
+          <button class="btn btn-primary" data-act="install" id="seInstall"><span class="sp"></span><span class="lbl"></span></button>
+          <button class="btn btn-secondary" data-act="restart" id="seRestart"><i data-icon="power"></i><span class="sp"></span><span data-i18n="restart">Restart</span></button>
+          <span class="grow"></span>
+          <button class="btn btn-danger-outline" data-act="uninstall" id="seUninstall"><span class="sp"></span><span data-i18n="btn_uninstall">Uninstall</span></button>
+        </div>
+        <p class="hint" id="seUninstallHint" data-i18n="se_remove_p">Uninstalling stops the service and takes it off this computer. Its settings and the folders stay, and installing again picks up where it was.</p>
+      </div>
+    </section>
+
+  </div></main>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>
 const CSRF=document.querySelector('meta[name=csrf]').content;
-const $=s=>document.querySelector(s);
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const api=async(path,body)=>{
   const r=await fetch(path,{method:body?'POST':'GET',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:body?JSON.stringify(body):undefined});
   let d={};try{d=await r.json()}catch(e){}
-  if(!r.ok)throw new Error(d.error||('HTTP '+r.status));
+  if(!r.ok){const e=new Error(d.error||('HTTP '+r.status));e.output=d.output;throw e;}
   return d;
 };
+
+/* ---------- icons (lucide's) ---------- */
+const ICONS={
+  dashboard:'<rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>',
+  folder:'<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+  cloud:'<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>',
+  terminal:'<polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/>',
+  sliders:'<line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/>',
+  refresh:'<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>',
+  power:'<path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.77.04"/>',
+  check:'<path d="M20 6 9 17l-5-5"/>',
+  alert:'<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  info:'<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+  upload:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>',
+  copy:'<rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+  plus:'<path d="M5 12h14"/><path d="M12 5v14"/>',
+  chevron:'<path d="m9 18 6-6-6-6"/>',
+  chevronDown:'<path d="m6 9 6 6 6-6"/>',
+  search:'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  x:'<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  layers:'<path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/>',
+  tag:'<path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/>',
+  circleX:'<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>',
+  circleCheck:'<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+  bug:'<path d="m8 2 1.88 1.88"/><path d="M14.12 3.88 16 2"/><path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1"/><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6"/><path d="M12 20v-9"/><path d="M6.53 9C4.6 8.8 3 7.1 3 5"/><path d="M6 13H2"/><path d="M3 21c0-2.1 1.7-3.9 3.8-4"/><path d="M20.97 5c0 2.1-1.6 3.8-3.5 4"/><path d="M22 13h-4"/><path d="M17.2 17c2.1.1 3.8 1.9 3.8 4"/>',
+  box:'<path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
+  pencil:'<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/>',
+  trash:'<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>',
+  toggle:'<rect width="20" height="12" x="2" y="6" rx="6" ry="6"/><circle cx="16" cy="12" r="2"/>',
+  scroll:'<path d="M15 12h-5"/><path d="M15 8h-5"/><path d="M19 17V5a2 2 0 0 0-2-2H4"/><path d="M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3"/>',
+  network:'<rect x="16" y="16" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="9" y="2" width="6" height="6" rx="1"/><path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3"/><path d="M12 12V8"/>',
+  activity:'<path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/>',
+  cpu:'<rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9" rx="1"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/>',
+  user:'<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  gauge:'<path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>',
+  download:'<path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/>',
+  play:'<polygon points="6 3 20 12 6 21 6 3"/>',
+  send:'<path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/>',
+};
+const icon=(n,cls='ic')=>'<svg class="'+cls+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(ICONS[n]||'')+'</svg>';
+function paintIcons(){ $$('i[data-icon]').forEach(e=>{ const tmp=document.createElement('span'); tmp.innerHTML=icon(e.dataset.icon,e.className?'ic '+e.className:'ic'); e.replaceWith(tmp.firstChild); }); }
 
 /* ---------- i18n ---------- */
 const T={
   en:{
-    title:"ViaVeritas Bridge · Setup",
-    cv_pc:"This computer",
-    s1t:"Choose folder", s1d:"Files to share",
-    s2t:"Install service", s2d:"Runs on startup",
-    s3t:"Pair with ViaVeritas", s3d:"Enter your code",
-    step1of4:"Step 1 of 4", step2of4:"Step 2 of 4", step3of4:"Step 3 of 4", step4of4:"Step 4 of 4",
-    spre_t:"Preview files", spre_d:"Check what syncs",
-    ppre_h:'Preview what will <em>sync</em>.',
-    ppre_lede:"A quick local scan — no files are uploaded and the ViaVeritas API isn't contacted yet.",
-    pre_scanning:"Scanning your folder…",
-    pre_scanned:"files scanned",
+    title:"ViaVeritas Bridge", brand_sub:"Bridge",
+    svc_running:"Running", svc_stopped:"Stopped", svc_not_installed:"Not installed", svc_unknown:"Unknown",
+    nav_overview:"Overview", nav_folder:"Folders", nav_connection:"Connection", nav_features:"Features", nav_activity:"Activity", nav_settings:"Settings",
+    installed_in:"Installed in", version_v:"Version {v}",
+    refresh:"Refresh", restart:"Restart", cancel:"Cancel", save:"Save",
+    ov_h:"Overview", ov_p:"This computer, connected to your organization in ViaVeritas.",
+    guide_h:"Set up this bridge", guide_p:"Two steps, once. After that it runs by itself, even after the computer restarts.",
+    g1_t:"Choose folders to sync", g1_p:"Only if your team should reach files on this computer from ViaVeritas: as many as you like, none inside another. You can add them any time.", g1_b:"Choose",
+    g_optional:"Optional",
+    fo_empty:"No folder is synced. Add one if your team should reach files on this computer from ViaVeritas; the bridge works without.",
+    files_off_here:"Files are switched off on this computer, so its folders don't sync and their files can't be opened from ViaVeritas. Features switches them on again.",
+    files_off_portal:"Files are switched off for this bridge in ViaVeritas, so its folders don't sync and their files can't be opened from there.",
+    t_files_nofolder:"No folder synced", t_files_off:"Switched off",
+    f_socket:"Socket", f_socket_on:"Connected {ago}", f_socket_off:"Not connected", f_socket_refused:"Refused: pair it again",
+    a_refused:"ViaVeritas refused this bridge's credentials: it was deleted there, or paired again elsewhere. Pair it again to reconnect.",
+    a_refused_b:"Pair again",
+    fe_h:"Features", fe_p:"What this bridge does on this computer. Each runs only while it is on here and in ViaVeritas: switched off here, ViaVeritas can't turn it on.",
+    fe_list:"What it does", fe_list_p:"Your organization's admins can switch these off for this bridge in ViaVeritas too.",
+    fe_here:"On this computer",
+    fe_pause_h:"Remote access", fe_pause_p:"Pausing ends what ViaVeritas has open on this computer and lets nothing new open, whatever the switches say, until you resume it.",
+    fe_pause:"Pause all remote access",
+    fe_open_h:"Open from ViaVeritas now", fe_open_p:"What ViaVeritas has open on this computer, and who opened it. Ending one closes it at once.",
+    fe_open_none:"Nothing is open on this computer from ViaVeritas.",
+    fe_not_running:"The service isn't running, so nothing is open. It runs once the bridge is installed.",
+    fe_confirm_remote:"Turn on {name}? Members of your organization with the permission will be able to use it on this computer from ViaVeritas, while ViaVeritas allows it too.",
+    fe_end:"End", fe_end_confirm:"End this {kind} now? It closes for whoever opened it.",
+    fs_runs:"Runs", fs_off_here:"Off on this computer", fs_off_portal:"Off in ViaVeritas", fs_paused:"Paused",
+    feat_files:"Files", feat_files_d:"Syncs the folders you choose to Files, and serves their files to your team on your network. Sends the names, sizes and dates of their files, never their contents.",
+    feat_inventory:"Inventory", feat_inventory_d:"Tells ViaVeritas what this computer is: its system and version, processor, memory, disks, network addresses, model and serial number. Sent when any of it changes.",
+    feat_inventory_personal:"Who uses it", feat_inventory_personal_d:"Adds the people signed in to this computer to its inventory, by their user name.",
+    feat_metrics:"Monitoring", feat_metrics_d:"Sends how busy this computer is every 30 seconds (processor, memory, disks, network and temperature), and every 2 seconds while someone watches; ViaVeritas keeps each with its time. Never what runs or what is in its files.",
+    feat_speedtest:"Speedtest", feat_speedtest_d:"Lets ViaVeritas measure the connection to it when someone asks: a few seconds of data down and up, at most 25 MB each way.",
+    up_h:"Updates", up_p:"A new version runs only once it checks out against ViaVeritas's signature. If it doesn't reach ViaVeritas within two minutes, the version before goes back in place.",
+    up_now:"Update to {v}", up_s_ask:"It updates only when someone asks, in ViaVeritas or here.",
+    up_avail:"{v} is out.", up_none:"No newer version is known.", up_busy:"Updating to {v}…", up_restarting:"{v} is in place and starting.", up_failed:"The update to {v} failed: {e}.",
+    up_not_running:"The service isn't running, so it can't update.",
+    toast_up_started:"Updating: the bridge starts again with the new version in a minute or two.",
+    kind_echo:"Connection test", kind_terminal:"Terminal", kind_exec:"Command",
+    feat_terminal:"Terminal", feat_terminal_d:"Lets ViaVeritas open a terminal on this computer (three at most, each ending after 15 minutes idle) and run commands on it (an hour each at most). What they show is kept in ViaVeritas; what is typed isn't.",
+    ss_h:"Terminals and commands", ss_p:"What ViaVeritas opens on this computer, once Terminal is on above. It never keeps a password: it runs as who you choose here.",
+    ss_runas:"They run as", ss_user:"The person signed in", ss_system:"The administrator", ss_notices:"Say it on this computer's screen when one starts",
+    ss_user_hint:"As whoever is signed in at this computer, with their rights. While nobody is, nothing opens.", ss_system_hint:"As root (SYSTEM on Windows): everything on this computer, whoever is signed in.",
+    ss_system_confirm:"Run what ViaVeritas opens as this computer's administrator? It can then change anything on it.",
+    feat_proxy:"Connections", feat_proxy_d:"Lets ViaVeritas reach anything this computer can: a web address, or a connection to a port, on its network or beyond. Switch it off to stop it.",
+    kind_http:"Web request", kind_tcp:"Connection",
+    feat_logs:"Logs", feat_logs_d:"Lets ViaVeritas read, live, the logs listed below: the bridge's own, and what you add. Nothing it reads is kept.",
+    kind_logs:"Log view", src_proxy:"Connections", src_logs:"Logs",
+    lg_h:"Logs ViaVeritas may read", lg_p:"What ViaVeritas may read live, once Logs is on above: the bridge's own log, and what you add here. Nothing it reads is kept.",
+    lg_kind:"Add", lg_name:"What it is (optional)", lg_add:"Share it", lg_remove:"Remove", lg_own:"Always shared while Logs is on",
+    lg_kinds_file:"A file", lg_kinds_journal:"The journal", lg_kinds_macos:"The system log", lg_kinds_eventlog:"An event log",
+    lg_t_file:"Path, or a pattern of them", lg_h_file:"The newest file a pattern matches is read: a log that rotates is followed.",
+    lg_t_journal:"Unit (optional)", lg_h_journal:"Empty: every unit's.",
+    lg_t_macos:"Predicate (optional)", lg_h_macos:"As `log stream --predicate` takes it. Empty: everything, which is a lot.",
+    lg_t_eventlog:"Event log", lg_h_eventlog:"System, Application, Security, or any other log's name.",
+    lg_everything:"everything", lg_remove_confirm:"Stop ViaVeritas reading {name}? A view of it open now ends.",
+    lg_off:"Logs are off above: nothing listed is read until they're on.",
+    toast_lg_added:"Shared", toast_lg_removed:"Removed",
+    st_by:"by {who}", st_since:"since {ago}", st_bytes:"{in} in, {out} out", st_someone:"ViaVeritas",
+    fe_version:"The service running here is {service}, another build than this dashboard ({own}): what you change here may not hold. Update it from Settings to run this one.",
+    toast_feature_on:"Switched on", toast_feature_off:"Switched off", toast_paused:"Remote access paused", toast_resumed:"Remote access resumed", toast_ended:"Ended",
+    g2_t:"Install it", g2_p:"It installs into {dir} and starts with this computer. This download can go afterwards.", g2_b:"Install",
+    g3_t:"Pair with ViaVeritas", g3_p:"In ViaVeritas, Bridges › Pair a bridge gives a code to enter here.", g3_b:"Pair",
+    ov_figures:"Now", t_service:"Service", t_service_on:"Starts with this computer", t_service_off:"Not running: restart it",
+    t_files:"Files in sync", t_files_at:"In sync {ago}", t_files_none:"Not synced yet",
+    t_contact:"ViaVeritas", t_contact_v:"Answered {ago}", t_contact_none:"Not yet",
+    t_free:"Free space",
+    t_version:"Version", t_version_newer:"Installed: {v}",
+    t_secure:"Secure address", t_secure_until:"Until {date}", t_secure_none:"Not yet", t_secure_plain:"Plain HTTP on the network for now",
+    a_update:"This copy is {new}, newer than the installed {old}. Updating keeps its settings, its pairing and its folder.",
+    a_update_b:"Update to {new}",
+    a_older:"This copy ({new}) is older than the installed bridge ({old}), which keeps running. Run {bin} instead, or delete this copy.",
+    a_protected:"macOS keeps the service out of {dir}. Give the bridge Full Disk Access in System Settings › Privacy & Security › Full Disk Access: choose +, then {bin} (⌘⇧G lets you type the path), and restart it here.",
+    a_socket:"Changes made in ViaVeritas (moving, renaming, deleting its files) can't reach this bridge until it is paired again.",
+    a_socket_b:"Pair again",
+    a_stopped:"The service is stopped: nothing syncs until it runs.",
+    a_nocontact:"It hasn't reached ViaVeritas yet. Activity says why.",
+    a_nocontact_b:"Open activity",
+    fo_h:"Folders", fo_p:"What this bridge keeps in sync. They stay on this computer; ViaVeritas mirrors them for your team.",
+    fo_save:"Sync this folder",
+    fo_protected:"macOS keeps background programs out of this folder. Once it's installed, give the bridge Full Disk Access (System Settings › Privacy & Security › Full Disk Access, +, then {bin}), or choose a folder outside Desktop, Documents and Downloads.",
+    selected:"Selected:", btn_newfolder:"New folder here",
+    pre_h:"The next sync", pre_p:"A scan on this computer: nothing is sent and ViaVeritas isn't asked.",
+    pre_scanning:"Scanning the folder…", pre_scanned:"files scanned", pre_rescan:"Scan again",
     pre_files:"files will sync", pre_file_one:"file will sync",
     pre_k_mode:"Sync type", pre_k_new:"New", pre_k_changed:"Changed", pre_k_removed:"Removed",
-    pre_mode_full:"First full sync", pre_mode_incremental:"Incremental update",
-    pre_mode_none:"Already up to date", pre_mode_skip:"Not ready",
-    pre_none:"Everything is already in sync — nothing to upload right now.",
-    pre_msg_full:"This first sync uploads every file in the folder.",
-    pre_msg_incremental:"Only changes since the last sync will be uploaded.",
+    pre_mode_full:"Everything, the first time", pre_mode_incremental:"The changes", pre_mode_none:"Up to date",
+    pre_none:"Everything is in sync: nothing to send now.",
+    pre_msg_full:"This first sync sends every file in the folder.",
+    pre_msg_incremental:"Only what changed since the last sync is sent.",
     pre_skip:"Can't preview yet: ",
-    pre_rescan:"Rescan", btn_pre_continue:"Looks good — continue",
-    pre_resync:"Force full re-sync",
-    pre_idx_hint:"These files are already recorded locally as synced. If they're missing in ViaVeritas, use “Force full re-sync” to send them all again.",
-    pre_skipped:"item(s) under the folder could not be read and were skipped — check the folder's permissions/ownership.",
-    p1_h:'Pick the folder you want to <em>share</em>.',
-    p1_lede:"ViaVeritas will keep these files in sync with your clinic's account. Browse to the folder — you can also create a new one.",
-    selected:"Selected:", adv:"Advanced settings",
-    f_bridge:"Bridge API port", ph_bridge:"Auto (6500–7500)",
-    f_scan:"Sync check interval (seconds)", f_log:"Log folder",
-    ph_log:"Default (next to the program)",
-    chk_hidden:"Include hidden files and folders (dotfiles) in the sync",
-    adv_hint:"Leave these as-is unless ViaVeritas support asked you to change them. Empty fields keep the current or automatic value.",
-    btn_newfolder:"＋ New folder here", btn_save:"Save & continue",
-    log1:"Saving configuration",
-    note_tip:"The folder stays on this computer. ViaVeritas only mirrors it so your team can reach the files from the CRM.",
-    p2_h:'Install the <em>background service</em>.',
-    p2_lede:"This registers ViaVeritas Bridge to start automatically whenever this computer boots — so sharing keeps working after restarts. It also downloads the file server it needs.",
-    onetime:"One-time install", onetime_d:"Takes about a minute. Leave this window open.",
-    back:"← Back", btn_install:"Install now", log2:"Installing service",
-    btn_uninstall:"Uninstall service", loguninstall:"Removing service",
-    p3p_h:'This bridge is <em>already paired</em>.',
-    p3p_lede:"It's linked to your clinic's ViaVeritas account — there's nothing more to do here unless you want to link it to a different clinic.",
-    note_ok:"Paired with ViaVeritas. Re-pairing is only needed to move this bridge to another clinic or after the clinic resets its code.",
-    bridgeid:"Bridge ID", api_name:"ViaVeritas API", reachable:"Reachable at",
-    repair:"Re-pair this bridge…", continue_ok:"Looks good — continue",
-    p3_h:'Enter your <em>pairing code</em>.',
-    p3_lede:"Find the code in your ViaVeritas CRM under clinic settings. This links this bridge to your clinic's account.",
-    lbl_code:"Pairing code", lbl_apiurl:"ViaVeritas API URL",
-    api_hint:"Leave this as-is unless ViaVeritas support told you otherwise.",
-    btn_pair:"Pair & finish", log3:"Pairing with ViaVeritas",
-    done_h:"Your clinic is connected.",
-    done_p:"ViaVeritas Bridge is running and will keep your files in sync automatically — even after this computer restarts.",
-    sharing:"Sharing",
-    done_hint:"You can close this window. The service runs on its own from now on.",
-    startover:"↺ Reconfigure / start over",
-    js_badfolder:"Could not open that folder.",
-    js_nosub:"No sub-folders here. Use the button below to share this folder, or create a new one.",
-    js_open:"open ›",
-    js_newfolderprompt:"Name for the new folder (created inside the current folder):",
-    js_mkdirfail:"Could not create folder: ",
-    js_waiting:"Waiting…", js_done:"Done.",
-    js_sharecont:"Share this folder & continue", js_readonly:"Folder is read-only",
-    js_uninstall_confirm:"Remove the ViaVeritas Bridge background service from this computer? File sharing will stop until you install it again."
+    pre_idx_hint:"These files are recorded here as synced already. If ViaVeritas is missing them, send everything again.",
+    pre_skipped:"item(s) in the folder couldn't be read and were left out: check the folder's permissions.",
+    pre_resync:"Send everything again",
+    resync_confirm:"Send every file in the folder to ViaVeritas again? Files already there are matched, not doubled.",
+    co_h:"Connection", co_p:"How this bridge and ViaVeritas reach each other.",
+    co_paired:"Paired with ViaVeritas", co_paired_p:"Your team opens its files straight from this computer, on your network.",
+    f_bridgeid:"Bridge ID", f_api:"ViaVeritas API", f_lan:"Local address", f_mdns:"Network name", f_tls:"Secure address", f_contact:"Last answer", f_changes:"Changes from ViaVeritas",
+    f_changes_on:"Reach this computer", f_changes_off:"Pair again to receive them",
+    repair:"Pair again…",
+    p3_h:"Enter the pairing code", p3_lede:"In ViaVeritas, open Bridges and choose Pair a bridge: the code shows there for 15 minutes. It links this bridge to your organization.",
+    lbl_code:"Pairing code", adv:"Advanced settings", lbl_apiurl:"ViaVeritas API address",
+    api_hint:"Leave it as it is unless ViaVeritas gave you another address.",
+    btn_pair:"Pair",
+    ac_h:"Activity", ac_path:"The bridge's log: what the service does and what is done here, {path}", ac_copy:"Copy",
+    ac_empty:"Nothing logged yet. The service writes here once it runs.", se_h:"Settings", se_p:"Leave these as they are unless ViaVeritas asked you to change them.",
+    se_sync:"Sync", se_sync_p:"Empty fields keep the current or automatic value. Saving restarts the service.",
+    f_bridge:"Port on the network", ph_bridge:"Auto (6500–7500)", f_scan:"Check for changes every (seconds)", f_log:"Log folder", ph_log:"Default (in the install folder)",
+    chk_hidden:"Sync hidden files and folders (names starting with a dot)",
+    se_install:"Installation", se_install_p:"The bridge runs from {dir} and keeps its settings there, whichever copy of it you open.",
+    f_this_copy:"This copy", f_installed:"Installed", f_none:"None",
+    st_update:"Version {old} is installed. Updating to {new} keeps its settings, its pairing and its folder.",
+    st_same:"Installed in {dir}, version {old}.",
+    st_newer:"A newer bridge ({old}) is installed, so this older copy ({new}) won't replace it.",
+    btn_install:"Install", btn_update_to:"Update to {new}",
+    se_remove_p:"Uninstalling stops the service and takes it off this computer. Its settings and the folders stay, and installing again picks up where it was.",
+    btn_uninstall:"Uninstall",
+    uninstall_confirm:"Uninstall ViaVeritas Bridge from this computer? Its files stop syncing until you install it again. Its settings and the folder stay.",
+    js_badfolder:"Couldn't open that folder.", js_nosub:"No folders in here. Sync this one, or create a new one.", js_open:"Open ›",
+    js_newfolderprompt:"Name of the new folder (made inside the one open now):", js_mkdirfail:"Couldn't create the folder: ",
+    js_readonly:"This folder is read-only",
+    toast_installed:"Installed", toast_restarted:"Restarted", toast_saved:"Saved", toast_paired:"Paired with ViaVeritas", toast_uninstalled:"Uninstalled", toast_resync:"Everything is sent again on the next scan", toast_copied:"Copied", toast_folder:"Added: its files arrive at the next scan",
+    fo_list:"Synced folders",
+    fo_list_p:"Each is a folder of its own inside the bridge's folder in Files. None may be inside another.",
+    fo_add:"Add a folder",
+    fo_add_h:"Add a folder",
+    fo_name:"Its name in Files",
+    fo_name_hint:"Empty: the folder's own name.",
+    fo_files:"{n} files in sync",
+    fo_free:"{size} free",
+    fo_away:"Isn't there",
+    fo_protected_flag:"Needs Full Disk Access",
+    fo_rename:"Rename",
+    fo_remove:"Stop syncing",
+    fo_rename_prompt:"Its new name in Files (its files move there, nothing on this computer changes):",
+    fo_remove_confirm:"Stop syncing “{name}”? Its files leave Files in ViaVeritas, with what is attached to them there. Nothing on this computer changes.",
+    a_away:"{names} can't be read now. Their files stay in ViaVeritas as they were until they're back.",
+    a_away_b:"Folders",
+    t_free_least:"The least of {n} folders",
+    pre_away:"{names} can't be read now and keep their files.",
+    toast_renamed:"Renamed: its files move at the next scan",
+    toast_removed:"No longer synced",
+    st_none:"It isn't installed on this computer yet.",
+    st_elsewhere:"Its service runs from an older place. Installing moves it into {dir}, keeping its settings and pairing.",
+    open_activity:"Open activity",
+    lang_label:"Language: {language}",
+    lang_menu:"Language",
+    ac_filters:"Filters",
+    ac_search:"Search the log",
+    ac_search_clear:"Clear the search",
+    ac_clear:"Clear filters",
+    ac_reset:"Clear",
+    ac_level:"Level",
+    ac_source:"Source",
+    ac_n_chosen:"{n} chosen",
+    ac_none_match:"Nothing in the log matches these filters.",
+    ac_none_yet:"Nothing logged yet.",
+    lv_error:"Errors",
+    lv_warn:"Warnings",
+    lv_info:"Info",
+    lv_ok:"Successes",
+    lv_debug:"Debug",
+    src_setup:"Setup",
+    src_bridge:"Service",
+    src_watch:"Scan",
+    src_sync:"Sync",
+    src_heartbeat:"Heartbeat",
+    src_apisocket:"Socket to ViaVeritas",
+    src_commands:"Changes from ViaVeritas",
+    src_bridgesrv:"File server",
+    src_config:"Settings",
+    src_files:"Downloads",
+    src_pair:"Pairing",
+    src_streams:"Sessions",
+    src_control:"This computer",
+    src_monitoring:"Monitoring", src_remote:"Terminals and commands", src_selfupdate:"Updates", src_telemetry:"Telemetry",
+    ago_now:"just now"
   },
   el:{
-    title:"ViaVeritas Bridge · Ρύθμιση",
-    cv_pc:"Αυτός ο υπολογιστής",
-    s1t:"Επιλογή φακέλου", s1d:"Αρχεία προς κοινή χρήση",
-    s2t:"Εγκατάσταση υπηρεσίας", s2d:"Εκκινεί κατά την έναρξη",
-    s3t:"Σύνδεση με το ViaVeritas", s3d:"Εισαγωγή κωδικού",
-    step1of4:"Βήμα 1 από 4", step2of4:"Βήμα 2 από 4", step3of4:"Βήμα 3 από 4", step4of4:"Βήμα 4 από 4",
-    spre_t:"Προεπισκόπηση αρχείων", spre_d:"Δείτε τι θα συγχρονιστεί",
-    ppre_h:'Προεπισκόπηση του τι θα <em>συγχρονιστεί</em>.',
-    ppre_lede:"Μια γρήγορη τοπική σάρωση — δεν ανεβαίνει κανένα αρχείο και δεν επικοινωνεί ακόμη με το ViaVeritas API.",
-    pre_scanning:"Σάρωση του φακέλου σας…",
-    pre_scanned:"αρχεία σαρώθηκαν",
+    title:"ViaVeritas Bridge", brand_sub:"Bridge",
+    svc_running:"Σε λειτουργία", svc_stopped:"Σταματημένο", svc_not_installed:"Μη εγκατεστημένο", svc_unknown:"Άγνωστο",
+    nav_overview:"Επισκόπηση", nav_folder:"Φάκελοι", nav_connection:"Σύνδεση", nav_features:"Λειτουργίες", nav_activity:"Δραστηριότητα", nav_settings:"Ρυθμίσεις",
+    installed_in:"Εγκατάσταση στο", version_v:"Έκδοση {v}",
+    refresh:"Ανανέωση", restart:"Επανεκκίνηση", cancel:"Ακύρωση", save:"Αποθήκευση",
+    ov_h:"Επισκόπηση", ov_p:"Αυτός ο υπολογιστής, συνδεδεμένος με τον οργανισμό σας στη ViaVeritas.",
+    guide_h:"Ρυθμίστε αυτό το bridge", guide_p:"Δύο βήματα, μία φορά. Μετά τρέχει μόνο του, ακόμη και μετά από επανεκκίνηση του υπολογιστή.",
+    g1_t:"Επιλέξτε φακέλους για συγχρονισμό", g1_p:"Μόνο αν η ομάδα σας θέλει να βλέπει αρχεία αυτού του υπολογιστή από τη ViaVeritas: όσους θέλετε, κανέναν μέσα σε άλλον. Μπορείτε να τους προσθέσετε όποτε θέλετε.", g1_b:"Επιλογή",
+    g_optional:"Προαιρετικό",
+    fo_empty:"Δεν συγχρονίζεται κανένας φάκελος. Προσθέστε έναν αν η ομάδα σας θέλει να βλέπει αρχεία αυτού του υπολογιστή από τη ViaVeritas· το bridge λειτουργεί και χωρίς.",
+    files_off_here:"Τα Αρχεία είναι απενεργοποιημένα σε αυτόν τον υπολογιστή, οπότε οι φάκελοί του δεν συγχρονίζονται και τα αρχεία τους δεν ανοίγουν από τη ViaVeritas. Τα ενεργοποιείτε ξανά από τις Λειτουργίες.",
+    files_off_portal:"Τα Αρχεία είναι απενεργοποιημένα για αυτό το bridge στη ViaVeritas, οπότε οι φάκελοί του δεν συγχρονίζονται και τα αρχεία τους δεν ανοίγουν από εκεί.",
+    t_files_nofolder:"Κανένας φάκελος", t_files_off:"Απενεργοποιημένα",
+    f_socket:"Socket", f_socket_on:"Συνδεδεμένο {ago}", f_socket_off:"Μη συνδεδεμένο", f_socket_refused:"Απορρίφθηκε: συνδέστε το ξανά",
+    a_refused:"Η ViaVeritas απέρριψε τα διαπιστευτήρια αυτού του bridge: διαγράφηκε εκεί ή συνδέθηκε ξανά αλλού. Συνδέστε το ξανά για να επανασυνδεθεί.",
+    a_refused_b:"Νέα σύνδεση",
+    fe_h:"Λειτουργίες", fe_p:"Τι κάνει αυτό το bridge σε αυτόν τον υπολογιστή. Η καθεμία τρέχει μόνο όσο είναι ενεργή εδώ και στη ViaVeritas: απενεργοποιημένη εδώ, η ViaVeritas δεν μπορεί να την ενεργοποιήσει.",
+    fe_list:"Τι κάνει", fe_list_p:"Οι διαχειριστές του οργανισμού σας μπορούν επίσης να τις απενεργοποιήσουν για αυτό το bridge στη ViaVeritas.",
+    fe_here:"Σε αυτόν τον υπολογιστή",
+    fe_pause_h:"Απομακρυσμένη πρόσβαση", fe_pause_p:"Η παύση κλείνει ό,τι έχει ανοιχτό η ViaVeritas σε αυτόν τον υπολογιστή και δεν αφήνει τίποτα νέο να ανοίξει, ό,τι κι αν λένε οι διακόπτες, μέχρι να τη συνεχίσετε.",
+    fe_pause:"Παύση κάθε απομακρυσμένης πρόσβασης",
+    fe_open_h:"Ανοιχτά από τη ViaVeritas τώρα", fe_open_p:"Τι έχει ανοιχτό η ViaVeritas σε αυτόν τον υπολογιστή, και ποιος το άνοιξε. Ο τερματισμός το κλείνει αμέσως.",
+    fe_open_none:"Δεν υπάρχει τίποτα ανοιχτό σε αυτόν τον υπολογιστή από τη ViaVeritas.",
+    fe_not_running:"Η υπηρεσία δεν τρέχει, οπότε δεν υπάρχει τίποτα ανοιχτό. Τρέχει μόλις εγκατασταθεί το bridge.",
+    fe_confirm_remote:"Ενεργοποίηση: {name}; Τα μέλη του οργανισμού σας με το δικαίωμα θα μπορούν να το χρησιμοποιούν σε αυτόν τον υπολογιστή από τη ViaVeritas, όσο το επιτρέπει και η ViaVeritas.",
+    fe_end:"Τερματισμός", fe_end_confirm:"Τερματισμός: {kind}; Κλείνει για όποιον το άνοιξε.",
+    fs_runs:"Τρέχει", fs_off_here:"Απενεργοποιημένη εδώ", fs_off_portal:"Απενεργοποιημένη στη ViaVeritas", fs_paused:"Σε παύση",
+    feat_files:"Αρχεία", feat_files_d:"Συγχρονίζει τους φακέλους που επιλέγετε στα Αρχεία και δίνει τα αρχεία τους στην ομάδα σας στο δίκτυό σας. Στέλνει ονόματα, μεγέθη και ημερομηνίες των αρχείων τους, ποτέ το περιεχόμενό τους.",
+    feat_inventory:"Απογραφή", feat_inventory_d:"Λέει στη ViaVeritas τι είναι αυτός ο υπολογιστής: το σύστημα και την έκδοσή του, τον επεξεργαστή, τη μνήμη, τους δίσκους, τις διευθύνσεις δικτύου, το μοντέλο και τον σειριακό αριθμό. Στέλνεται όταν αλλάζει κάτι.",
+    feat_inventory_personal:"Ποιοι τον χρησιμοποιούν", feat_inventory_personal_d:"Προσθέτει στην απογραφή τα άτομα που έχουν συνδεθεί σε αυτόν τον υπολογιστή, με το όνομα χρήστη τους.",
+    feat_metrics:"Παρακολούθηση", feat_metrics_d:"Στέλνει πόσο απασχολημένος είναι αυτός ο υπολογιστής κάθε 30 δευτερόλεπτα (επεξεργαστής, μνήμη, δίσκοι, δίκτυο και θερμοκρασία), και κάθε 2 δευτερόλεπτα όσο κάποιος παρακολουθεί· η ViaVeritas κρατά την καθεμία με την ώρα της. Ποτέ τι τρέχει ή τι περιέχουν τα αρχεία του.",
+    feat_speedtest:"Μέτρηση ταχύτητας", feat_speedtest_d:"Επιτρέπει στη ViaVeritas να μετρά τη σύνδεση μαζί της όταν το ζητήσει κάποιος: λίγα δευτερόλεπτα δεδομένων προς τα κάτω και προς τα πάνω, έως 25 MB προς κάθε κατεύθυνση.",
+    up_h:"Ενημερώσεις", up_p:"Μια νέα έκδοση τρέχει μόνο αφού ελεγχθεί με την υπογραφή της ViaVeritas. Αν δεν συνδεθεί με τη ViaVeritas μέσα σε δύο λεπτά, επιστρέφει η προηγούμενη έκδοση.",
+    up_now:"Ενημέρωση σε {v}", up_s_ask:"Ενημερώνεται μόνο όταν το ζητήσει κάποιος, στη ViaVeritas ή εδώ.",
+    up_avail:"Κυκλοφόρησε η {v}.", up_none:"Δεν υπάρχει γνωστή νεότερη έκδοση.", up_busy:"Ενημέρωση σε {v}…", up_restarting:"Η {v} μπήκε στη θέση της και ξεκινά.", up_failed:"Η ενημέρωση σε {v} απέτυχε: {e}.",
+    up_not_running:"Η υπηρεσία δεν τρέχει, οπότε δεν μπορεί να ενημερωθεί.",
+    toast_up_started:"Ενημέρωση: το bridge ξεκινά ξανά με τη νέα έκδοση σε ένα με δύο λεπτά.",
+    kind_echo:"Δοκιμή σύνδεσης", kind_terminal:"Τερματικό", kind_exec:"Εντολή",
+    feat_terminal:"Τερματικό", feat_terminal_d:"Επιτρέπει στη ViaVeritas να ανοίγει τερματικό σε αυτόν τον υπολογιστή (έως τρία, το καθένα κλείνει μετά από 15 λεπτά αδράνειας) και να εκτελεί εντολές σε αυτόν (μία ώρα η καθεμία το πολύ). Ό,τι δείχνουν κρατιέται στη ViaVeritas· ό,τι πληκτρολογείται όχι.",
+    ss_h:"Τερματικά και εντολές", ss_p:"Ό,τι ανοίγει η ViaVeritas σε αυτόν τον υπολογιστή, όταν το Τερματικό είναι ενεργό παραπάνω. Δεν κρατά ποτέ κωδικό: τρέχει ως όποιον επιλέξετε εδώ.",
+    ss_runas:"Τρέχουν ως", ss_user:"Το άτομο που έχει συνδεθεί", ss_system:"Ο διαχειριστής", ss_notices:"Να το λέει στην οθόνη αυτού του υπολογιστή όταν ξεκινά",
+    ss_user_hint:"Ως όποιον έχει συνδεθεί σε αυτόν τον υπολογιστή, με τα δικαιώματά του. Όσο δεν έχει συνδεθεί κανείς, δεν ανοίγει τίποτα.", ss_system_hint:"Ως root (SYSTEM στα Windows): τα πάντα σε αυτόν τον υπολογιστή, όποιος κι αν έχει συνδεθεί.",
+    ss_system_confirm:"Να τρέχει ό,τι ανοίγει η ViaVeritas ως διαχειριστής αυτού του υπολογιστή; Θα μπορεί τότε να αλλάξει τα πάντα σε αυτόν.",
+    feat_proxy:"Συνδέσεις", feat_proxy_d:"Επιτρέπει στη ViaVeritas να φτάνει σε οτιδήποτε φτάνει αυτός ο υπολογιστής: μια διεύθυνση web ή μια σύνδεση σε θύρα, στο δίκτυό του ή πέρα από αυτό. Απενεργοποιήστε το για να σταματήσει.",
+    kind_http:"Αίτημα web", kind_tcp:"Σύνδεση",
+    feat_logs:"Καταγραφές", feat_logs_d:"Επιτρέπει στη ViaVeritas να διαβάζει ζωντανά τις καταγραφές της λίστας παρακάτω: του ίδιου του bridge, και όσες προσθέσετε. Τίποτα από όσα διαβάζει δεν κρατιέται.",
+    kind_logs:"Προβολή καταγραφής", src_proxy:"Συνδέσεις", src_logs:"Καταγραφές",
+    lg_h:"Καταγραφές που μπορεί να διαβάσει η ViaVeritas", lg_p:"Τι μπορεί να διαβάσει ζωντανά η ViaVeritas, όταν οι Καταγραφές είναι ενεργές παραπάνω: την καταγραφή του ίδιου του bridge, και όσες προσθέσετε εδώ. Τίποτα από όσα διαβάζει δεν κρατιέται.",
+    lg_kind:"Προσθήκη", lg_name:"Τι είναι (προαιρετικό)", lg_add:"Κοινοποίηση", lg_remove:"Αφαίρεση", lg_own:"Κοινοποιείται πάντα όσο οι Καταγραφές είναι ενεργές",
+    lg_kinds_file:"Ένα αρχείο", lg_kinds_journal:"Το journal", lg_kinds_macos:"Η καταγραφή συστήματος", lg_kinds_eventlog:"Μια καταγραφή συμβάντων",
+    lg_t_file:"Διαδρομή, ή μοτίβο διαδρομών", lg_h_file:"Διαβάζεται το νεότερο αρχείο που ταιριάζει στο μοτίβο: μια καταγραφή που εναλλάσσεται ακολουθείται.",
+    lg_t_journal:"Μονάδα (προαιρετικό)", lg_h_journal:"Κενό: όλων των μονάδων.",
+    lg_t_macos:"Κατηγόρημα (προαιρετικό)", lg_h_macos:"Όπως το δέχεται το `log stream --predicate`. Κενό: τα πάντα, που είναι πολλά.",
+    lg_t_eventlog:"Καταγραφή συμβάντων", lg_h_eventlog:"System, Application, Security, ή το όνομα οποιασδήποτε άλλης καταγραφής.",
+    lg_everything:"τα πάντα", lg_remove_confirm:"Να μη διαβάζει πια η ViaVeritas το {name}; Μια προβολή του που είναι ανοιχτή τώρα κλείνει.",
+    lg_off:"Οι Καταγραφές είναι απενεργοποιημένες παραπάνω: τίποτα από τη λίστα δεν διαβάζεται μέχρι να ενεργοποιηθούν.",
+    toast_lg_added:"Κοινοποιήθηκε", toast_lg_removed:"Αφαιρέθηκε",
+    st_by:"από {who}", st_since:"από {ago}", st_bytes:"{in} εισερχόμενα, {out} εξερχόμενα", st_someone:"ViaVeritas",
+    fe_version:"Η υπηρεσία που τρέχει εδώ είναι η {service}, άλλη έκδοση από αυτόν τον πίνακα ({own}): ό,τι αλλάζετε εδώ μπορεί να μη μείνει. Ενημερώστε την από τις Ρυθμίσεις για να τρέχει αυτή.",
+    toast_feature_on:"Ενεργοποιήθηκε", toast_feature_off:"Απενεργοποιήθηκε", toast_paused:"Η απομακρυσμένη πρόσβαση είναι σε παύση", toast_resumed:"Η απομακρυσμένη πρόσβαση συνεχίζεται", toast_ended:"Τερματίστηκε",
+    g2_t:"Εγκαταστήστε το", g2_p:"Εγκαθίσταται στο {dir} και ξεκινά με τον υπολογιστή. Η λήψη μπορεί να διαγραφεί μετά.", g2_b:"Εγκατάσταση",
+    g3_t:"Συνδέστε το με τη ViaVeritas", g3_p:"Στη ViaVeritas, Bridges › Σύνδεση bridge δίνει έναν κωδικό που γράφετε εδώ.", g3_b:"Σύνδεση",
+    ov_figures:"Τώρα", t_service:"Υπηρεσία", t_service_on:"Ξεκινά με τον υπολογιστή", t_service_off:"Δεν τρέχει: επανεκκινήστε το",
+    t_files:"Συγχρονισμένα αρχεία", t_files_at:"Συγχρονίστηκαν {ago}", t_files_none:"Δεν έχουν συγχρονιστεί ακόμη",
+    t_contact:"ViaVeritas", t_contact_v:"Απάντησε {ago}", t_contact_none:"Όχι ακόμη",
+    t_free:"Ελεύθερος χώρος",
+    t_version:"Έκδοση", t_version_newer:"Εγκατεστημένη: {v}",
+    t_secure:"Ασφαλής διεύθυνση", t_secure_until:"Έως {date}", t_secure_none:"Όχι ακόμη", t_secure_plain:"Απλό HTTP στο δίκτυο προς το παρόν",
+    a_update:"Αυτό το αντίγραφο είναι η {new}, νεότερη από την εγκατεστημένη {old}. Η ενημέρωση κρατά τις ρυθμίσεις, τη σύνδεση και τον φάκελό του.",
+    a_update_b:"Ενημέρωση στην {new}",
+    a_older:"Αυτό το αντίγραφο ({new}) είναι παλαιότερο από το εγκατεστημένο bridge ({old}), που συνεχίζει να τρέχει. Ανοίξτε το {bin} ή διαγράψτε αυτό το αντίγραφο.",
+    a_protected:"Το macOS κρατά την υπηρεσία έξω από το {dir}. Δώστε στο bridge Πλήρη πρόσβαση στον δίσκο από Ρυθμίσεις συστήματος › Απόρρητο και ασφάλεια › Πλήρης πρόσβαση στον δίσκο: επιλέξτε + και μετά {bin} (με ⌘⇧G γράφετε τη διαδρομή), και επανεκκινήστε το εδώ.",
+    a_socket:"Οι αλλαγές από τη ViaVeritas (μετακίνηση, μετονομασία, διαγραφή αρχείων του) δεν φτάνουν σε αυτό το bridge μέχρι να συνδεθεί ξανά.",
+    a_socket_b:"Νέα σύνδεση",
+    a_stopped:"Η υπηρεσία είναι σταματημένη: τίποτα δεν συγχρονίζεται μέχρι να τρέξει.",
+    a_nocontact:"Δεν έχει επικοινωνήσει ακόμη με τη ViaVeritas. Η Δραστηριότητα λέει γιατί.",
+    a_nocontact_b:"Δραστηριότητα",
+    fo_h:"Φάκελοι", fo_p:"Τι κρατά συγχρονισμένο αυτό το bridge. Μένουν σε αυτόν τον υπολογιστή· η ViaVeritas τους αντιγράφει για την ομάδα σας.",
+    fo_save:"Συγχρονισμός αυτού του φακέλου",
+    fo_protected:"Το macOS κρατά τα προγράμματα παρασκηνίου έξω από αυτόν τον φάκελο. Μόλις εγκατασταθεί, δώστε στο bridge Πλήρη πρόσβαση στον δίσκο (Ρυθμίσεις συστήματος › Απόρρητο και ασφάλεια › Πλήρης πρόσβαση στον δίσκο, +, μετά {bin}) ή επιλέξτε φάκελο εκτός Γραφείου, Εγγράφων και Λήψεων.",
+    selected:"Επιλογή:", btn_newfolder:"Νέος φάκελος εδώ",
+    pre_h:"Ο επόμενος συγχρονισμός", pre_p:"Μια σάρωση σε αυτόν τον υπολογιστή: τίποτα δεν στέλνεται και η ViaVeritas δεν ερωτάται.",
+    pre_scanning:"Σάρωση του φακέλου…", pre_scanned:"αρχεία σαρώθηκαν", pre_rescan:"Νέα σάρωση",
     pre_files:"αρχεία θα συγχρονιστούν", pre_file_one:"αρχείο θα συγχρονιστεί",
-    pre_k_mode:"Τύπος συγχρονισμού", pre_k_new:"Νέα", pre_k_changed:"Τροποποιημένα", pre_k_removed:"Διαγραμμένα",
-    pre_mode_full:"Πρώτος πλήρης συγχρονισμός", pre_mode_incremental:"Αυξητική ενημέρωση",
-    pre_mode_none:"Ήδη ενημερωμένο", pre_mode_skip:"Μη έτοιμο",
-    pre_none:"Όλα είναι ήδη συγχρονισμένα — δεν υπάρχει κάτι για ανέβασμα τώρα.",
-    pre_msg_full:"Αυτός ο πρώτος συγχρονισμός ανεβάζει κάθε αρχείο του φακέλου.",
-    pre_msg_incremental:"Θα ανέβουν μόνο οι αλλαγές από τον τελευταίο συγχρονισμό.",
-    pre_skip:"Δεν είναι δυνατή η προεπισκόπηση ακόμη: ",
-    pre_rescan:"Επανασάρωση", btn_pre_continue:"Όλα καλά — συνέχεια",
-    pre_resync:"Επιβολή πλήρους επανασυγχρονισμού",
-    pre_idx_hint:"Αυτά τα αρχεία είναι ήδη καταγεγραμμένα τοπικά ως συγχρονισμένα. Αν λείπουν από το ViaVeritas, χρησιμοποιήστε «Επιβολή πλήρους επανασυγχρονισμού» για να σταλούν ξανά όλα.",
-    pre_skipped:"στοιχείο/α κάτω από τον φάκελο δεν ήταν αναγνώσιμα και παραλείφθηκαν — ελέγξτε δικαιώματα/ιδιοκτησία του φακέλου.",
-    p1_h:'Επιλέξτε ποιον φάκελο θέλετε να <em>μοιραστείτε</em>.',
-    p1_lede:"Το ViaVeritas θα διατηρεί αυτά τα αρχεία συγχρονισμένα με τον λογαριασμό της κλινικής σας. Περιηγηθείτε στον φάκελο — μπορείτε επίσης να δημιουργήσετε νέον.",
-    selected:"Επιλεγμένο:", adv:"Σύνθετες ρυθμίσεις",
-    f_bridge:"Θύρα API της γέφυρας", ph_bridge:"Αυτόματα (6500–7500)",
-    f_scan:"Διάστημα ελέγχου συγχρονισμού (δευτερόλεπτα)", f_log:"Φάκελος καταγραφών",
-    ph_log:"Προεπιλογή (δίπλα στο πρόγραμμα)",
-    chk_hidden:"Συμπερίληψη κρυφών αρχείων και φακέλων στον συγχρονισμό",
-    adv_hint:"Αφήστε τα ως έχουν εκτός αν σας ζήτησε αλλαγή η υποστήριξη ViaVeritas. Τα κενά πεδία διατηρούν την τρέχουσα ή αυτόματη τιμή.",
-    btn_newfolder:"＋ Νέος φάκελος εδώ", btn_save:"Αποθήκευση & συνέχεια",
-    log1:"Αποθήκευση ρυθμίσεων",
-    note_tip:"Ο φάκελος παραμένει σε αυτόν τον υπολογιστή. Το ViaVeritas απλώς τον αντικατοπτρίζει ώστε η ομάδα σας να βλέπει τα αρχεία από το CRM.",
-    p2_h:'Εγκαταστήστε την <em>υπηρεσία παρασκηνίου</em>.',
-    p2_lede:"Αυτό καταχωρεί το ViaVeritas Bridge ώστε να εκκινεί αυτόματα κάθε φορά που ανοίγει ο υπολογιστής — έτσι η κοινή χρήση συνεχίζει να λειτουργεί μετά από επανεκκινήσεις. Κατεβάζει επίσης τον διακομιστή αρχείων που χρειάζεται.",
-    onetime:"Εγκατάσταση μία φορά", onetime_d:"Διαρκεί περίπου ένα λεπτό. Αφήστε αυτό το παράθυρο ανοιχτό.",
-    back:"← Πίσω", btn_install:"Εγκατάσταση τώρα", log2:"Εγκατάσταση υπηρεσίας",
-    btn_uninstall:"Κατάργηση υπηρεσίας", loguninstall:"Κατάργηση υπηρεσίας",
-    p3p_h:'Αυτή η γέφυρα είναι <em>ήδη συνδεδεμένη</em>.',
-    p3p_lede:"Είναι συνδεδεμένη με τον λογαριασμό ViaVeritas της κλινικής σας — δεν χρειάζεται κάτι άλλο εδώ, εκτός αν θέλετε να τη συνδέσετε με διαφορετική κλινική.",
-    note_ok:"Συνδεδεμένη με το ViaVeritas. Η επανασύνδεση χρειάζεται μόνο για μεταφορά σε άλλη κλινική ή αφού η κλινική επαναφέρει τον κωδικό της.",
-    bridgeid:"Αναγνωριστικό γέφυρας", api_name:"API ViaVeritas", reachable:"Προσβάσιμο στο",
-    repair:"Επανασύνδεση αυτής της γέφυρας…", continue_ok:"Όλα καλά — συνέχεια",
-    p3_h:'Εισαγάγετε τον <em>κωδικό σύνδεσης</em>.',
-    p3_lede:"Βρείτε τον κωδικό στο ViaVeritas CRM, στις ρυθμίσεις κλινικής. Αυτό συνδέει τη γέφυρα με τον λογαριασμό της κλινικής σας.",
-    lbl_code:"Κωδικός σύνδεσης", lbl_apiurl:"URL του API ViaVeritas",
-    api_hint:"Αφήστε το ως έχει εκτός αν σας ενημέρωσε διαφορετικά η υποστήριξη ViaVeritas.",
-    btn_pair:"Σύνδεση & ολοκλήρωση", log3:"Σύνδεση με το ViaVeritas",
-    done_h:"Η κλινική σας συνδέθηκε.",
-    done_p:"Το ViaVeritas Bridge εκτελείται και θα διατηρεί τα αρχεία σας συγχρονισμένα αυτόματα — ακόμη και μετά από επανεκκίνηση του υπολογιστή.",
-    sharing:"Κοινή χρήση",
-    done_hint:"Μπορείτε να κλείσετε αυτό το παράθυρο. Η υπηρεσία εκτελείται μόνη της από εδώ και πέρα.",
-    startover:"↺ Επαναρύθμιση / από την αρχή",
-    js_badfolder:"Δεν ήταν δυνατό το άνοιγμα αυτού του φακέλου.",
-    js_nosub:"Δεν υπάρχουν υποφάκελοι εδώ. Χρησιμοποιήστε το κουμπί πιο κάτω για κοινή χρήση αυτού του φακέλου ή δημιουργήστε νέον.",
-    js_open:"άνοιγμα ›",
-    js_newfolderprompt:"Όνομα νέου φακέλου (δημιουργείται μέσα στον τρέχοντα φάκελο):",
-    js_mkdirfail:"Δεν ήταν δυνατή η δημιουργία φακέλου: ",
-    js_waiting:"Αναμονή…", js_done:"Έγινε.",
-    js_sharecont:"Κοινή χρήση φακέλου & συνέχεια", js_readonly:"Ο φάκελος είναι μόνο για ανάγνωση",
-    js_uninstall_confirm:"Να καταργηθεί η υπηρεσία παρασκηνίου ViaVeritas Bridge από αυτόν τον υπολογιστή; Η κοινή χρήση αρχείων θα σταματήσει μέχρι να την εγκαταστήσετε ξανά."
+    pre_k_mode:"Τύπος συγχρονισμού", pre_k_new:"Νέα", pre_k_changed:"Αλλαγμένα", pre_k_removed:"Διαγραμμένα",
+    pre_mode_full:"Όλα, την πρώτη φορά", pre_mode_incremental:"Οι αλλαγές", pre_mode_none:"Ενημερωμένο",
+    pre_none:"Όλα είναι συγχρονισμένα: τίποτα να σταλεί τώρα.",
+    pre_msg_full:"Αυτός ο πρώτος συγχρονισμός στέλνει κάθε αρχείο του φακέλου.",
+    pre_msg_incremental:"Στέλνεται μόνο ό,τι άλλαξε από τον τελευταίο συγχρονισμό.",
+    pre_skip:"Δεν γίνεται ακόμη προεπισκόπηση: ",
+    pre_idx_hint:"Αυτά τα αρχεία είναι ήδη καταγεγραμμένα εδώ ως συγχρονισμένα. Αν λείπουν από τη ViaVeritas, στείλτε τα όλα ξανά.",
+    pre_skipped:"στοιχείο/α του φακέλου δεν διαβάστηκαν και παραλείφθηκαν: ελέγξτε τα δικαιώματα του φακέλου.",
+    pre_resync:"Αποστολή όλων ξανά",
+    resync_confirm:"Να σταλούν ξανά όλα τα αρχεία του φακέλου στη ViaVeritas; Όσα υπάρχουν ήδη ταιριάζονται, δεν διπλασιάζονται.",
+    co_h:"Σύνδεση", co_p:"Πώς επικοινωνούν αυτό το bridge και η ViaVeritas.",
+    co_paired:"Συνδεδεμένο με τη ViaVeritas", co_paired_p:"Η ομάδα σας ανοίγει τα αρχεία του απευθείας από αυτόν τον υπολογιστή, στο δίκτυό σας.",
+    f_bridgeid:"Αναγνωριστικό bridge", f_api:"API της ViaVeritas", f_lan:"Τοπική διεύθυνση", f_mdns:"Όνομα στο δίκτυο", f_tls:"Ασφαλής διεύθυνση", f_contact:"Τελευταία απάντηση", f_changes:"Αλλαγές από τη ViaVeritas",
+    f_changes_on:"Φτάνουν σε αυτόν τον υπολογιστή", f_changes_off:"Συνδέστε το ξανά για να φτάνουν",
+    repair:"Νέα σύνδεση…",
+    p3_h:"Γράψτε τον κωδικό σύνδεσης", p3_lede:"Στη ViaVeritas, ανοίξτε τα Bridges και επιλέξτε Σύνδεση bridge: ο κωδικός εμφανίζεται εκεί για 15 λεπτά. Συνδέει αυτό το bridge με τον οργανισμό σας.",
+    lbl_code:"Κωδικός σύνδεσης", adv:"Σύνθετες ρυθμίσεις", lbl_apiurl:"Διεύθυνση API της ViaVeritas",
+    api_hint:"Αφήστε την ως έχει, εκτός αν η ViaVeritas σας έδωσε άλλη διεύθυνση.",
+    btn_pair:"Σύνδεση",
+    ac_h:"Δραστηριότητα", ac_path:"Το αρχείο καταγραφής του bridge: ό,τι κάνει η υπηρεσία και ό,τι γίνεται εδώ, {path}", ac_copy:"Αντιγραφή",
+    ac_empty:"Τίποτα ακόμη. Η υπηρεσία γράφει εδώ μόλις τρέξει.", se_h:"Ρυθμίσεις", se_p:"Αφήστε τα ως έχουν, εκτός αν σας ζήτησε αλλαγή η ViaVeritas.",
+    se_sync:"Συγχρονισμός", se_sync_p:"Τα κενά πεδία κρατούν την τρέχουσα ή την αυτόματη τιμή. Η αποθήκευση επανεκκινεί την υπηρεσία.",
+    f_bridge:"Θύρα στο δίκτυο", ph_bridge:"Αυτόματα (6500–7500)", f_scan:"Έλεγχος για αλλαγές κάθε (δευτερόλεπτα)", f_log:"Φάκελος καταγραφών", ph_log:"Προεπιλογή (στον φάκελο εγκατάστασης)",
+    chk_hidden:"Συγχρονισμός κρυφών αρχείων και φακέλων (ονόματα με τελεία μπροστά)",
+    se_install:"Εγκατάσταση", se_install_p:"Το bridge τρέχει από το {dir} και κρατά εκεί τις ρυθμίσεις του, όποιο αντίγραφό του κι αν ανοίξετε.",
+    f_this_copy:"Αυτό το αντίγραφο", f_installed:"Εγκατεστημένο", f_none:"Κανένα",
+    st_update:"Είναι εγκατεστημένη η {old}. Η ενημέρωση στην {new} κρατά τις ρυθμίσεις, τη σύνδεση και τον φάκελό του.",
+    st_same:"Εγκατεστημένο στο {dir}, έκδοση {old}.",
+    st_newer:"Είναι εγκατεστημένο νεότερο bridge ({old}), οπότε αυτό το παλαιότερο αντίγραφο ({new}) δεν το αντικαθιστά.",
+    btn_install:"Εγκατάσταση", btn_update_to:"Ενημέρωση στην {new}",
+    se_remove_p:"Η απεγκατάσταση σταματά την υπηρεσία και την αφαιρεί από αυτόν τον υπολογιστή. Οι ρυθμίσεις και οι φάκελοι μένουν, και μια νέα εγκατάσταση συνεχίζει από εκεί που ήταν.",
+    btn_uninstall:"Απεγκατάσταση",
+    uninstall_confirm:"Απεγκατάσταση του ViaVeritas Bridge από αυτόν τον υπολογιστή; Τα αρχεία του σταματούν να συγχρονίζονται μέχρι να το εγκαταστήσετε ξανά. Οι ρυθμίσεις και ο φάκελος μένουν.",
+    js_badfolder:"Δεν ήταν δυνατό να ανοίξει αυτός ο φάκελος.", js_nosub:"Δεν υπάρχουν φάκελοι εδώ. Συγχρονίστε αυτόν ή δημιουργήστε νέο.", js_open:"Άνοιγμα ›",
+    js_newfolderprompt:"Όνομα του νέου φακέλου (δημιουργείται μέσα σε αυτόν που είναι ανοιχτός):", js_mkdirfail:"Δεν ήταν δυνατό να δημιουργηθεί ο φάκελος: ",
+    js_readonly:"Ο φάκελος είναι μόνο για ανάγνωση",
+    toast_installed:"Εγκαταστάθηκε", toast_restarted:"Επανεκκινήθηκε", toast_saved:"Αποθηκεύτηκε", toast_paired:"Συνδέθηκε με τη ViaVeritas", toast_uninstalled:"Απεγκαταστάθηκε", toast_resync:"Όλα στέλνονται ξανά στην επόμενη σάρωση", toast_copied:"Αντιγράφηκε", toast_folder:"Προστέθηκε: τα αρχεία του έρχονται στην επόμενη σάρωση",
+    fo_list:"Συγχρονισμένοι φάκελοι",
+    fo_list_p:"Ο καθένας είναι ξεχωριστός φάκελος μέσα στον φάκελο του bridge στα Αρχεία. Κανένας δεν μπορεί να είναι μέσα σε άλλον.",
+    fo_add:"Προσθήκη φακέλου",
+    fo_add_h:"Προσθήκη φακέλου",
+    fo_name:"Το όνομά του στα Αρχεία",
+    fo_name_hint:"Κενό: το όνομα του ίδιου του φακέλου.",
+    fo_files:"{n} αρχεία συγχρονισμένα",
+    fo_free:"{size} ελεύθερα",
+    fo_away:"Δεν υπάρχει",
+    fo_protected_flag:"Θέλει Πλήρη πρόσβαση στον δίσκο",
+    fo_rename:"Μετονομασία",
+    fo_remove:"Διακοπή συγχρονισμού",
+    fo_rename_prompt:"Το νέο του όνομα στα Αρχεία (τα αρχεία του μετακινούνται εκεί, τίποτα δεν αλλάζει σε αυτόν τον υπολογιστή):",
+    fo_remove_confirm:"Διακοπή συγχρονισμού του «{name}»; Τα αρχεία του φεύγουν από τα Αρχεία της ViaVeritas, μαζί με ό,τι είναι συνδεδεμένο μαζί τους εκεί. Τίποτα δεν αλλάζει σε αυτόν τον υπολογιστή.",
+    a_away:"Οι {names} δεν διαβάζονται τώρα. Τα αρχεία τους μένουν στη ViaVeritas ως έχουν μέχρι να επιστρέψουν.",
+    a_away_b:"Φάκελοι",
+    t_free_least:"Το λιγότερο από {n} φακέλους",
+    pre_away:"Οι {names} δεν διαβάζονται τώρα και κρατούν τα αρχεία τους.",
+    toast_renamed:"Μετονομάστηκε: τα αρχεία του μετακινούνται στην επόμενη σάρωση",
+    toast_removed:"Δεν συγχρονίζεται πια",
+    st_none:"Δεν είναι ακόμη εγκατεστημένο σε αυτόν τον υπολογιστή.",
+    st_elsewhere:"Η υπηρεσία του τρέχει από παλαιότερη θέση. Η εγκατάσταση το μεταφέρει στο {dir}, κρατώντας τις ρυθμίσεις και τη σύνδεσή του.",
+    open_activity:"Δραστηριότητα",
+    lang_label:"Γλώσσα: {language}",
+    lang_menu:"Γλώσσα",
+    ac_filters:"Φίλτρα",
+    ac_search:"Αναζήτηση στο αρχείο",
+    ac_search_clear:"Καθαρισμός αναζήτησης",
+    ac_clear:"Καθαρισμός φίλτρων",
+    ac_reset:"Καθαρισμός",
+    ac_level:"Επίπεδο",
+    ac_source:"Προέλευση",
+    ac_n_chosen:"{n} επιλεγμένα",
+    ac_none_match:"Τίποτα στο αρχείο δεν ταιριάζει με αυτά τα φίλτρα.",
+    ac_none_yet:"Τίποτα ακόμη.",
+    lv_error:"Σφάλματα",
+    lv_warn:"Προειδοποιήσεις",
+    lv_info:"Πληροφορίες",
+    lv_ok:"Επιτυχίες",
+    lv_debug:"Αποσφαλμάτωση",
+    src_setup:"Ρύθμιση",
+    src_bridge:"Υπηρεσία",
+    src_watch:"Σάρωση",
+    src_sync:"Συγχρονισμός",
+    src_heartbeat:"Σήμα ζωής",
+    src_apisocket:"Σύνδεση με τη ViaVeritas",
+    src_commands:"Αλλαγές από τη ViaVeritas",
+    src_bridgesrv:"Διακομιστής αρχείων",
+    src_config:"Ρυθμίσεις",
+    src_files:"Λήψεις",
+    src_pair:"Σύνδεση κωδικού",
+    src_streams:"Συνεδρίες",
+    src_control:"Αυτός ο υπολογιστής",
+    src_monitoring:"Παρακολούθηση", src_remote:"Τερματικά και εντολές", src_selfupdate:"Ενημερώσεις", src_telemetry:"Τηλεμετρία",
+    ago_now:"μόλις τώρα"
   }
 };
-let LANG=localStorage.getItem('bridgeLang')||'en';
+let LANG=(()=>{try{return localStorage.getItem('bridgeLang')}catch(e){return null}})()||'en';
 if(!T[LANG])LANG='en';
-const t=k=>(T[LANG]&&T[LANG][k])!=null?T[LANG][k]:(T.en[k]!=null?T.en[k]:k);
-
-function applyLang(){
-  document.documentElement.lang=LANG;
-  document.title=t('title');
-  document.querySelectorAll('[data-i18n]').forEach(e=>{ e.textContent=t(e.dataset.i18n); });
-  document.querySelectorAll('[data-i18n-html]').forEach(e=>{ e.innerHTML=t(e.dataset.i18nHtml); });
-  document.querySelectorAll('[data-i18n-ph]').forEach(e=>{ e.placeholder=t(e.dataset.i18nPh); });
-  document.querySelectorAll('.log-b').forEach(e=>e.setAttribute('data-empty',t('js_waiting')));
-  document.querySelectorAll('#langbar button').forEach(b=>b.classList.toggle('active',b.dataset.lang===LANG));
-  updateB1Label();
-}
-document.querySelectorAll('#langbar button').forEach(b=>{
-  b.onclick=()=>{ LANG=b.dataset.lang; localStorage.setItem('bridgeLang',LANG); applyLang(); };
-});
-
-let current=1, pickedPath='', b1ro=false;
-
-function updateB1Label(){
-  const lbl=$('#b1 .lbl'); if(!lbl)return;
-  if($('#picked').style.display==='none'||$('#picked').style.display==='') {
-    if(!pickedPath){ lbl.textContent=t('btn_save'); return; }
-  }
-  if(pickedPath) lbl.textContent=b1ro?t('js_readonly'):t('js_sharecont');
-  else lbl.textContent=t('btn_save');
-}
-
-// step number → panel id. 1 folder · 2 preview · 3 install · 4 pair · >4 done.
-const PANEL={1:'#p1',2:'#ppre',3:'#p2',4:'#p3'};
-function setStep(n){
-  current=n;
-  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('show'));
-  $(n>4?'#pdone':PANEL[n]).classList.add('show');
-  document.querySelectorAll('.step').forEach(li=>{
-    const s=+li.dataset.s;
-    li.classList.toggle('active',s===n);
-    li.classList.toggle('done',s<n||n>4);
+const t=(k,vals)=>{ let s=(T[LANG]&&T[LANG][k])!=null?T[LANG][k]:(T.en[k]!=null?T.en[k]:k); if(vals)for(const [n,v] of Object.entries(vals))s=s.split('{'+n+'}').join(v); return s; };
+// A string with its {placeholders}, each value shown as code.
+function fill(el,key,vals){
+  el.textContent='';
+  t(key).split(/(\{\w+\})/).forEach(part=>{
+    const m=/^\{(\w+)\}$/.exec(part);
+    if(m&&vals[m[1]]!=null){ const c=document.createElement('code'); c.textContent=vals[m[1]]; el.appendChild(c); }
+    else el.appendChild(document.createTextNode(part));
   });
-  window.scrollTo({top:0,behavior:'smooth'});
+}
+const nf=n=>Number(n||0).toLocaleString(LANG);
+function bytes(n){ if(n==null)return '—'; const u=['B','KB','MB','GB','TB']; let i=0,v=n; while(v>=1000&&i<u.length-1){v/=1000;i++;} return v.toLocaleString(LANG,{maximumFractionDigits:v<10&&i>0?1:0})+' '+u[i]; }
+function ago(iso){
+  const d=Date.parse(iso); if(!d)return '';
+  const s=Math.round((d-Date.now())/1000); if(Math.abs(s)<10)return t('ago_now');
+  const rtf=new Intl.RelativeTimeFormat(LANG,{numeric:'auto'});
+  for(const [u,n] of [['year',31536000],['month',2592000],['day',86400],['hour',3600],['minute',60]]) if(Math.abs(s)>=n) return rtf.format(Math.round(s/n),u);
+  return rtf.format(s,'second');
+}
+const date=iso=>{ const d=new Date(iso); return isNaN(d)?'':d.toLocaleDateString(LANG,{day:'numeric',month:'short',year:'numeric'}); };
+
+let S={}, VIEW='overview';
+
+/* ---------- toast ---------- */
+let toastTimer;
+// What an action did, briefly; what it printed is in Activity, which a failure's toast leads to.
+function toast(msg,bad){
+  const el=$('#toast'); el.innerHTML='';
+  const m=document.createElement('span'); m.className='msg'; m.textContent=msg; el.appendChild(m);
+  if(bad){ const b=document.createElement('button'); b.type='button'; b.className='btn btn-secondary btn-sm'; b.textContent=t('open_activity'); b.dataset.go='activity'; el.appendChild(b); }
+  el.className='toast show'+(bad?' err':''); clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.className='toast',bad?9000:3200);
 }
 
-/* clickable step rail — free navigation so the operator can go back and
-   reconfigure from any step (each step maps to an idempotent command). */
-document.querySelectorAll('#rail .step').forEach(li=>{
-  li.onclick=()=>{ const n=+li.dataset.s; setStep(n);
-    if(n===1){loadConfigForm();browse(pickedPath||'');}
-    if(n===2){loadPreview();}
-    if(n===4){renderStep3();} };
+/* ---------- views ---------- */
+const VIEWS=['overview','folder','connection','features','activity','settings'];
+function setView(v,push){
+  if(!VIEWS.includes(v))v='overview';
+  VIEW=v;
+  $$('[data-section]').forEach(s=>s.hidden=s.dataset.section!==v);
+  $$('#nav button').forEach(b=>{ if(b.dataset.view===v)b.setAttribute('aria-current','page'); else b.removeAttribute('aria-current'); });
+  if(push)history.pushState(null,'','#'+v); else history.replaceState(null,'','#'+v);
+  if(v==='folder')loadPreview();
+  if(v==='features')loadRemote();
+  if(v==='activity'){ LOG.stick=true; renderLogs(); scrollLogEnd(); }
+  window.scrollTo({top:0});
+}
+$$('#nav button').forEach(b=>b.onclick=()=>setView(b.dataset.view,true));
+addEventListener('popstate',()=>setView(location.hash.slice(1),false));
+document.addEventListener('click',e=>{ const go=e.target.closest('[data-go]'); if(go){ e.preventDefault(); setView(go.dataset.go,true); } });
+
+/* ---------- status ---------- */
+async function refresh(){
+  try{ S=await api('/api/status'); }catch(e){ return; }
+  render();
+}
+function render(){ renderTop(); renderOverview(); renderFolders(); renderConnection(); renderSettings(); }
+const folders=()=>S.folders||[];
+const names=list=>list.map(f=>'“'+f.name+'”').join(', ');
+// The service manager's word, else what the settings say.
+// The service manager knows its service (the install folder's, or one from an older place, "elsewhere").
+function installed(){ return S.installState==='installed'||S.installState==='elsewhere'; }
+function serviceLabel(){ return t('svc_'+(S.service||'unknown')); }
+function renderTop(){
+  const p=$('#servicePill'), st=S.service||'unknown';
+  p.className='pill'+(st==='running'?' on':st==='stopped'?' bad':'');
+  p.querySelector('span').textContent=serviceLabel();
+  $('#footVersion').textContent=t('version_v',{v:S.version||''});
+  $('#footDir').textContent=S.installDir||'';
+  $('#badgeFolder').hidden=!folders().some(f=>f.protected||!f.available);
+  $('#badgeConnection').hidden=!(S.paired&&(!S.socketReady||(S.socket&&S.socket.refused)));
+  $('#badgeFeatures').hidden=S.filesOn!==false||!folders().length;
+  $('#badgeActivity').hidden=!LOG.problems;
+}
+
+function renderOverview(){
+  // Install and pair are the setup; folders are for those who want Files, so they don't hold the guide open.
+  const folderDone=folders().length>0, installDone=installed(), pairDone=!!S.paired;
+  $('#guide').hidden=installDone&&pairDone;
+  const steps=[['#gInstall',installDone],['#gPair',pairDone],['#gFolder',folderDone]];
+  const next=steps.findIndex(s=>!s[1]);
+  steps.forEach(([id,done],i)=>{
+    const el=$(id); el.classList.toggle('done',done); el.classList.toggle('next',i===next);
+    el.querySelector('.num').innerHTML=done?icon('check'):String(i+1);
+    const b=el.querySelector('.btn'); b.disabled=done||(i===1&&!installDone);
+    b.classList.toggle('btn-primary',i===next); b.classList.toggle('btn-secondary',i!==next);
+  });
+  fill($('#g2p'),'g2_p',{dir:S.installDir||''});
+  $('#ovRestart').hidden=!installDone;
+
+  // What needs looking at, most pressing first.
+  const box=$('#alerts'); box.innerHTML='';
+  const add=(kind,key,vals,btn)=>{
+    const n=document.createElement('div'); n.className='note '+kind;
+    n.innerHTML=icon(kind?'alert':'info')+'<span class="txt"></span>';
+    const txt=n.querySelector('.txt'), span=document.createElement('span'); fill(span,key,vals); txt.appendChild(span);
+    if(btn){ const r=document.createElement('div'); r.className='row'; const b=document.createElement('button'); b.className='btn btn-secondary btn-sm';
+      b.innerHTML='<span class="sp"></span><span></span>'; b.lastChild.textContent=btn.label;
+      if(btn.go)b.dataset.go=btn.go; if(btn.act)b.dataset.act=btn.act; r.appendChild(b); txt.appendChild(r); }
+    box.appendChild(n);
+  };
+  const prot=folders().filter(f=>f.protected), away=folders().filter(f=>!f.available);
+  const v={old:S.installedVersion||'',new:S.version||'',bin:S.installedBinary||'',dir:prot.map(f=>f.path).join(', '),names:names(away)};
+  if(S.service==='stopped') add('err','a_stopped',v,{label:t('restart'),act:'restart'});
+  if(S.installState==='elsewhere') add('warn','st_elsewhere',{dir:S.installDir||''},{label:t('btn_install'),act:'install'});
+  else if(S.updateAvailable) add('warn','a_update',v,{label:t('a_update_b',{new:v.new}),act:'install'});
+  if(S.newerInstalled) add('','a_older',v);
+  if(prot.length) add('warn','a_protected',v);
+  if(away.length) add('warn','a_away',v,{label:t('a_away_b'),go:'folder'});
+  if(S.paired&&S.socket&&S.socket.refused) add('err','a_refused',v,{label:t('a_refused_b'),go:'connection'});
+  else if(S.paired&&!S.socketReady) add('warn','a_socket',v,{label:t('a_socket_b'),go:'connection'});
+  if(S.paired&&S.service==='running'&&!S.lastHeartbeatAt) add('','a_nocontact',v,{label:t('a_nocontact_b'),go:'activity'});
+
+  // Now, two rows of three.
+  const tiles=[
+    [t('t_service'),serviceLabel(),S.service==='running'?t('t_service_on'):installDone?t('t_service_off'):'',S.service==='stopped'],
+    !folders().length?[t('t_files'),'—',t('t_files_nofolder')]
+      :S.filesOn===false?[t('t_files'),S.indexed!=null?nf(S.indexed):'—',t('t_files_off')]
+      :[t('t_files'),S.indexed!=null?nf(S.indexed):'—',S.indexedAt?t('t_files_at',{ago:ago(S.indexedAt)}):t('t_files_none')],
+    [t('t_contact'),S.lastHeartbeatAt?ago(S.lastHeartbeatAt):t('t_contact_none'),S.apiBaseUrl?S.apiBaseUrl.replace(/^https?:\/\//,''):''],
+    [t('t_free'),S.freeBytes!=null?bytes(S.freeBytes):'—',folders().length===1?folders()[0].path:folders().length?t('t_free_least',{n:nf(folders().length)}):''],
+    [t('t_version'),S.version||'—',S.updateAvailable||S.newerInstalled?t('t_version_newer',{v:S.installedVersion}):(S.installDir||'')],
+    [t('t_secure'),S.tlsUntil?t('t_secure_until',{date:date(S.tlsUntil)}):t('t_secure_none'),S.tlsUrl||t('t_secure_plain')],
+  ];
+  const tb=$('#tiles'); tb.innerHTML='';
+  tiles.forEach(([k,val,sub,bad])=>{ const d=document.createElement('div'); d.className='tile';
+    d.innerHTML='<div class="k"></div><div class="v"></div><div class="s"></div>';
+    d.querySelector('.k').textContent=k; const vv=d.querySelector('.v'); vv.textContent=val; vv.title=val; if(bad)vv.classList.add('bad');
+    const s=d.querySelector('.s'); s.textContent=sub; s.title=sub; tb.appendChild(d); });
+}
+
+/* ---------- actions ---------- */
+const ACTIONS={
+  install:{path:'/api/install',done:'toast_installed'},
+  restart:{path:'/api/restart',done:'toast_restarted'},
+  uninstall:{path:'/api/uninstall',done:'toast_uninstalled',ask:'uninstall_confirm'},
+  resync:{path:'/api/resync',done:'toast_resync',ask:'resync_confirm'},
+};
+async function run(btn,path,body,doneKey){
+  if(btn){ btn.classList.add('loading'); btn.disabled=true; }
+  try{ await api(path,body||{}); if(doneKey)toast(t(doneKey)); return true; }
+  catch(e){ toast(e.message||String(e),true); return false; }
+  finally{ if(btn){ btn.classList.remove('loading'); btn.disabled=false; } await refresh(); pollLogs(); }
+}
+document.addEventListener('click',async e=>{
+  const b=e.target.closest('[data-act]'); if(!b||b.disabled)return;
+  const kind=b.dataset.act;
+  if(kind==='refresh'){ b.classList.add('loading'); await refresh(); await pollLogs(); b.classList.remove('loading'); return; }
+  const a=ACTIONS[kind]; if(!a)return;
+  if(a.ask&&!confirm(t(a.ask)))return;
+  const ok=await run(b,a.path,{},a.done);
+  if(ok&&kind==='resync'&&VIEW==='folder')loadPreview();
 });
 
-/* prefill the configure form (folder + advanced) from current config */
-async function loadConfigForm(){
-  let s={};
-  try{ s=await api('/api/status'); }catch(e){ return; }
-  const set=(id,v)=>{ const el=$(id); if(el&&v!=null&&v!==0&&v!=='')el.value=v; };
-  set('#cfgBridgePort',s.bridgePort);
-  set('#cfgScanInterval',s.scanInterval);
-  set('#cfgLogDir',s.logDir);
-  $('#cfgHidden').checked=!!s.includeHidden;
+/* ---------- folder ---------- */
+let pickedPath='';
+function renderFolders(){
+  const list=$('#foList'); list.innerHTML='';
+  $('#foEmpty').hidden=folders().length>0||!$('#browserBox').hidden;
+  $('#preCard').hidden=!folders().length;
+  const off=folders().length&&S.filesOn===false;
+  $('#filesOff').hidden=!off;
+  if(off)$('#filesOffText').textContent=t(S.filesHere===false?'files_off_here':'files_off_portal');
+  folders().forEach(f=>{
+    const row=document.createElement('div'); row.className='fitem';
+    row.innerHTML=icon('folder')+'<div class="main-col"><b></b><code></code><div class="meta"></div></div>';
+    row.querySelector('b').textContent=f.name; row.querySelector('code').textContent=f.path;
+    const meta=row.querySelector('.meta');
+    const put=(text,cls)=>{ const e=document.createElement('span'); if(cls)e.className=cls; e.textContent=text; meta.appendChild(e); };
+    put(t('fo_files',{n:nf(f.files||0)}));
+    if(f.freeBytes!=null)put(t('fo_free',{size:bytes(f.freeBytes)}));
+    if(!f.available)put(t('fo_away'),'flag bad');
+    if(f.protected)put(t('fo_protected_flag'),'flag');
+    const ren=document.createElement('button'); ren.type='button'; ren.className='icon-btn'; ren.title=t('fo_rename'); ren.setAttribute('aria-label',t('fo_rename')); ren.innerHTML=icon('pencil');
+    ren.onclick=()=>renameFolder(f);
+    const del=document.createElement('button'); del.type='button'; del.className='icon-btn danger'; del.title=t('fo_remove'); del.setAttribute('aria-label',t('fo_remove')); del.innerHTML=icon('trash');
+    del.onclick=()=>removeFolder(f);
+    row.append(ren,del); list.appendChild(row);
+  });
 }
-
-/* ---------- live log ---------- */
-function logRun(idx,btn,fn){
-  const box=$('#log'+idx), head=$('#log'+idx+'h'), body=$('#log'+idx+'b');
-  box.classList.add('show');head.className='log-h';body.textContent='';
-  btn.classList.add('loading');btn.disabled=true;
-  return fn(line=>{body.textContent+=line+'\n';body.scrollTop=body.scrollHeight;})
-    .then(out=>{ if(out!=null)body.textContent=out.trim()||t('js_done'); head.classList.add('ok'); return true; })
-    .catch(e=>{ body.textContent=(body.textContent+'\n'+(e.message||e)).trim(); head.classList.add('err'); return false; })
-    .finally(()=>{ btn.classList.remove('loading'); });
+async function folderAction(path,body,doneKey){
+  await run(null,path,body,doneKey); loadPreview();
 }
-
-/* ---------- step 1: folder browser ---------- */
+function renameFolder(f){
+  const name=prompt(t('fo_rename_prompt',{name:f.name}),f.name);
+  if(name==null||!name.trim()||name.trim()===f.name)return;
+  folderAction('/api/folders/rename',{name:f.name,newName:name.trim()},'toast_renamed');
+}
+function removeFolder(f){
+  if(!confirm(t('fo_remove_confirm',{name:f.name})))return;
+  folderAction('/api/folders/remove',{name:f.name},'toast_removed');
+}
+function openBrowser(){ $('#browserBox').hidden=false; $('#foEmpty').hidden=true; $('#foName').value=''; browse(pickedPath||S.suggestedRoot||''); }
+$('#foAdd').onclick=()=>openBrowser();
+$('#foCancel').onclick=()=>{ $('#browserBox').hidden=true; renderFolders(); };
 async function browse(path){
   const flist=$('#flist'),crumbs=$('#crumbs');
-  flist.innerHTML='<div style="padding:18px 22px"><div class="skel" style="width:60%"></div><div class="skel" style="width:42%;margin-top:12px"></div><div class="skel" style="width:52%;margin-top:12px"></div></div>';
+  flist.innerHTML='<div class="fempty">…</div>';
   let d;
   try{ d=await api('/api/browse?path='+encodeURIComponent(path||'')); }
-  catch(e){ flist.innerHTML='<div class="fempty">'+t('js_badfolder')+'<br>'+(e.message||'')+'</div>'; return; }
-  // breadcrumbs
+  catch(e){ flist.innerHTML=''; const m=document.createElement('div'); m.className='fempty'; m.textContent=t('js_badfolder')+' '+(e.message||''); flist.appendChild(m); return; }
   crumbs.innerHTML='';
   d.crumbs.forEach((c,i)=>{
-    const b=document.createElement('button');b.textContent=c.label||'/';
-    b.onclick=()=>browse(c.path);crumbs.appendChild(b);
-    if(i<d.crumbs.length-1){const s=document.createElement('span');s.className='sep';s.textContent='›';crumbs.appendChild(s);}
+    const b=document.createElement('button');b.type='button';b.textContent=c.label||'/';b.onclick=()=>browse(c.path);crumbs.appendChild(b);
+    if(i<d.crumbs.length-1){const s=document.createElement('span');s.textContent='›';crumbs.appendChild(s);}
   });
-  // entries
   flist.innerHTML='';
-  if(!d.dirs.length){flist.innerHTML='<div class="fempty">'+t('js_nosub')+'</div>';}
+  if(!d.dirs.length){ const m=document.createElement('div'); m.className='fempty'; m.textContent=t('js_nosub'); flist.appendChild(m); }
   d.dirs.forEach(dir=>{
-    const row=document.createElement('button');row.className='frow';
-    row.innerHTML='<svg viewBox="0 0 24 24" fill="none"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" stroke="currentColor" stroke-width="1.7"/></svg><span></span><small>'+t('js_open')+'</small>';
-    row.querySelector('span').textContent=dir.name;
-    row.onclick=()=>browse(dir.path);
-    flist.appendChild(row);
+    const row=document.createElement('button');row.type='button';row.className='frow';
+    row.innerHTML=icon('folder')+'<span></span><small></small>';
+    row.querySelector('span').textContent=dir.name; row.querySelector('small').textContent=t('js_open');
+    row.onclick=()=>browse(dir.path); flist.appendChild(row);
   });
-  // current dir becomes selectable target
   pickedPath=d.path;
-  $('#picked').style.display='flex';
-  $('#pickedPath').textContent=d.path;
-  b1ro=!d.writable;
-  $('#b1').disabled=!d.writable;
-  updateB1Label();
+  $('#picked').hidden=!d.path;
+  // Cut at its start when long (right to left), still read left to right.
+  $('#pickedPath').textContent='\u200E'+d.path+'\u200E';
+  // What can't be synced says why, and the button waits: inside or around a synced folder, or the bridge's own.
+  const save=$('#foSave'); save.disabled=!d.path||!!d.problem;
+  save.querySelector('.lbl').textContent=t('fo_save');
+  $('#pickProblem').hidden=!d.problem; $('#pickProblemText').textContent=d.problem||'';
+  $('#pickProtected').hidden=!d.protected;
+  if(d.protected)fill($('#pickProtectedText'),'fo_protected',{bin:S.installedBinary||''});
 }
-
 $('#newFolderBtn').onclick=async()=>{
-  const name=prompt(t('js_newfolderprompt'));
-  if(!name)return;
+  const name=prompt(t('js_newfolderprompt')); if(!name)return;
   try{ const r=await api('/api/mkdir',{parent:pickedPath,name}); browse(r.path); }
-  catch(e){ alert(t('js_mkdirfail')+(e.message||e)); }
+  catch(e){ toast(t('js_mkdirfail')+(e.message||e),true); }
+};
+$('#foSave').onclick=async()=>{
+  const ok=await run($('#foSave'),'/api/folders/add',{path:pickedPath,name:$('#foName').value.trim()},'toast_folder');
+  if(ok){ $('#browserBox').hidden=true; pickedPath=''; loadPreview(); }
 };
 
-$('#b1').onclick=async()=>{
-  const num=id=>{ const v=parseInt(($(id).value||'').trim(),10); return Number.isFinite(v)&&v>0?v:0; };
-  const str=id=>($(id).value||'').trim();
-  const advTouched=$('#cfgAdv').open; // only override include/log-dir if opened
-  const body={
-    dataRoot:pickedPath,
-    bridgePort:num('#cfgBridgePort'),
-    scanInterval:num('#cfgScanInterval')
-  };
-  if(advTouched){
-    body.includeHidden=$('#cfgHidden').checked;
-    const ld=str('#cfgLogDir'); if(ld)body.logDir=ld;
-  }
-  const ok=await logRun(1,$('#b1'),async push=>{
-    const r=await api('/api/configure',body);
-    push(r.output||'');return r.output;
-  });
-  if(ok)setTimeout(()=>{setStep(2);loadPreview();},650);
-};
-
-/* ---------- step 2: preview ---------- */
-// Local-only scan (no API contact); shows how many files the first sync
-// would upload. Reuses the `preview` command's logic via /api/preview.
 async function loadPreview(){
   const scan=$('#preScan'),bdy=$('#preBody'),err=$('#preErr');
-  scan.style.display='block'; bdy.style.display='none'; err.style.display='none';
-  $('#preCount').textContent='';
-  // /api/preview streams newline-delimited JSON: {"scanned":N} progress lines
-  // then a final {"result":{…}} (or {"error":"…"}). Read the body as a stream
-  // so the file counter ticks live — the api() helper only does a single
-  // r.json() and can't stream.
+  if(!folders().length){ scan.hidden=true; bdy.hidden=true; err.hidden=true; return; }
+  scan.hidden=false; bdy.hidden=true; err.hidden=true; $('#preCount').textContent='';
   let p=null, scanErr=null;
   try{
     const r=await fetch('/api/preview',{headers:{'X-CSRF':CSRF}});
     if(!r.ok){ let d={}; try{d=await r.json()}catch(e){} throw new Error(d.error||('HTTP '+r.status)); }
-    const reader=r.body.getReader(), dec=new TextDecoder();
-    let buf='';
+    const reader=r.body.getReader(), dec=new TextDecoder(); let buf='';
     for(;;){
-      const {value,done}=await reader.read();
-      if(done) break;
-      buf+=dec.decode(value,{stream:true});
-      let nl;
+      const {value,done}=await reader.read(); if(done)break;
+      buf+=dec.decode(value,{stream:true}); let nl;
       while((nl=buf.indexOf('\n'))>=0){
-        const line=buf.slice(0,nl).trim(); buf=buf.slice(nl+1);
-        if(!line) continue;
-        let msg; try{ msg=JSON.parse(line); }catch(e){ continue; }
-        if(msg.scanned!=null) $('#preCount').textContent=msg.scanned.toLocaleString()+' '+t('pre_scanned');
-        else if(msg.result) p=msg.result;
-        else if(msg.error) scanErr=msg.error;
+        const line=buf.slice(0,nl).trim(); buf=buf.slice(nl+1); if(!line)continue;
+        let msg; try{msg=JSON.parse(line)}catch(e){continue}
+        if(msg.scanned!=null)$('#preCount').textContent=nf(msg.scanned)+' '+t('pre_scanned');
+        else if(msg.result)p=msg.result; else if(msg.error)scanErr=msg.error;
       }
     }
   }catch(e){ scanErr=e.message||String(e); }
-  scan.style.display='none';
-  if(scanErr||!p){
-    err.style.display='flex';
-    $('#preErrMsg').textContent=t('pre_skip')+(scanErr||'incomplete response');
-    return;
-  }
-  if(p.mode==='skip'){
-    err.style.display='flex';
-    $('#preErrMsg').textContent=t('pre_skip')+(p.reason||'');
-    return;
-  }
-  bdy.style.display='block';
+  scan.hidden=true;
+  if(scanErr||!p||p.mode==='skip'){ err.hidden=false; $('#preErrMsg').textContent=t('pre_skip')+(scanErr||(p&&p.reason)||''); return; }
+  bdy.hidden=false;
   const total=p.total||0;
-  $('#preTotal').textContent=total;
-  $('#preTotalLbl').textContent=total===1?t('pre_file_one'):t('pre_files');
-  const modeMap={full:'pre_mode_full',incremental:'pre_mode_incremental',none:'pre_mode_none',skip:'pre_mode_skip'};
-  $('#preMode').textContent=t(modeMap[p.mode]||'pre_mode_none');
-  $('#preNew').textContent=p.created||0;
-  $('#preChanged').textContent=p.modified||0;
-  $('#preRemoved').textContent=p.deleted||0;
-  $('#preMsg').textContent = total===0 ? t('pre_none')
-    : (p.mode==='full'?t('pre_msg_full'):t('pre_msg_incremental'));
-  // "none" with files already indexed: explain why nothing uploads and point
-  // at the resync button (this is the exact "files not in my DB" case).
-  $('#preIdxHint').style.display = (p.mode==='none' && (p.indexed||0)>0) ? 'block' : 'none';
-  const sk=$('#preSkipHint');
-  if((p.skipped||0)>0){ sk.style.display='block'; sk.textContent=p.skipped+' '+t('pre_skipped'); }
-  else sk.style.display='none';
+  $('#preTotal').textContent=nf(total); $('#preTotalLbl').textContent=total===1?t('pre_file_one'):t('pre_files');
+  $('#preMode').textContent=t({full:'pre_mode_full',incremental:'pre_mode_incremental'}[p.mode]||'pre_mode_none');
+  $('#preNew').textContent=nf(p.created); $('#preChanged').textContent=nf(p.modified); $('#preRemoved').textContent=nf(p.deleted);
+  $('#preMsg').textContent=(total===0?t('pre_none'):(p.mode==='full'?t('pre_msg_full'):t('pre_msg_incremental')))+((p.unavailable||[]).length?' '+t('pre_away',{names:p.unavailable.map(n=>'“'+n+'”').join(', ')}):'');
+  $('#preIdxHint').hidden=!(p.mode==='none'&&(p.indexed||0)>0);
+  const sk=$('#preSkipHint'); sk.hidden=!(p.skipped>0); if(p.skipped>0)sk.textContent=nf(p.skipped)+' '+t('pre_skipped');
 }
-$('#preBack').onclick=()=>setStep(1);
 $('#preRefresh').onclick=()=>loadPreview();
-$('#preResync').onclick=async()=>{
-  const b=$('#preResync'); b.classList.add('loading'); b.disabled=true;
-  try{ await api('/api/resync',{}); }catch(e){ alert(t('pre_skip')+(e.message||e)); }
-  b.classList.remove('loading'); b.disabled=false;
-  await loadPreview();
-};
-$('#preGo').onclick=()=>setStep(3);
 
-/* ---------- step 3: install ---------- */
-$('#back2').onclick=()=>setStep(2);
-$('#b2').onclick=async()=>{
-  const ok=await logRun(2,$('#b2'),async push=>{
-    const r=await api('/api/install',{});push(r.output||'');return r.output;
-  });
-  if(ok){ $('#bUninstall').style.display=''; setTimeout(()=>setStep(4),650); }
-};
-
-/* uninstall — exposed on the install step (once installed) and the done
-   screen. Reuses the `uninstall` subcommand via /api/uninstall. */
-async function doUninstall(idx,btn){
-  if(!confirm(t('js_uninstall_confirm')))return false;
-  const ok=await logRun(idx,btn,async push=>{
-    const r=await api('/api/uninstall',{});push(r.output||'');return r.output;
-  });
-  if(ok){ $('#bUninstall').style.display='none'; $('#b2').disabled=false; }
-  else btn.disabled=false; // logRun leaves it disabled; allow a retry
-  return ok;
+/* ---------- connection ---------- */
+let rePairing=false;
+function link(u){ if(!u||!/^https?:\/\//.test(u))return document.createTextNode('—'); const a=document.createElement('a'); a.href=u; a.target='_blank'; a.rel='noopener'; a.textContent=u; return a; }
+function copyBtn(value){ const b=document.createElement('button'); b.type='button'; b.className='icon-btn'; b.title=t('ac_copy'); b.setAttribute('aria-label',t('ac_copy')); b.innerHTML=icon('copy');
+  b.onclick=()=>navigator.clipboard.writeText(value).then(()=>toast(t('toast_copied'))); return b; }
+function renderConnection(){
+  $('#coPaired').hidden=!S.paired||rePairing;
+  $('#coForm').hidden=!!S.paired&&!rePairing;
+  $('#pairCancel').hidden=!S.paired;
+  if(S.apiBaseUrl)$('#apiUrl').placeholder=S.apiBaseUrl;
+  const dl=$('#coFields'); dl.innerHTML='';
+  const row=(label,node)=>{ const dt=document.createElement('dt'); dt.textContent=label; const dd=document.createElement('dd'); if(typeof node==='string')dd.textContent=node; else dd.appendChild(node); dl.append(dt,dd); return dd; };
+  if(!S.paired)return;
+  const code=document.createElement('code'); code.textContent=S.bridgeId||'—';
+  const id=row(t('f_bridgeid'),code); if(S.bridgeId)id.appendChild(copyBtn(S.bridgeId));
+  row(t('f_api'),S.apiBaseUrl||'—');
+  row(t('f_lan'),link(S.lanUrl));
+  if(S.mdnsUrl)row(t('f_mdns'),link(S.mdnsUrl));
+  row(t('f_tls'),S.tlsUrl?link(S.tlsUrl):t('t_secure_plain'));
+  row(t('f_contact'),S.lastHeartbeatAt?ago(S.lastHeartbeatAt):t('t_contact_none'));
+  // The running service's word on its socket; without one, whether it could hold one.
+  if(S.socket){
+    const sk=S.socket, dd=row(t('f_socket'),sk.connected?t('f_socket_on',{ago:ago(sk.since)}):sk.refused?t('f_socket_refused'):t('f_socket_off'));
+    if(!sk.connected&&sk.error){ dd.title=sk.error; if(sk.refused)dd.style.color='var(--destructive)'; }
+  }else row(t('f_changes'),S.socketReady?t('f_changes_on'):t('f_changes_off'));
 }
-$('#bUninstall').onclick=()=>doUninstall('2u',$('#bUninstall'));
-$('#dUninstall').onclick=async()=>{
-  // The service is gone — the "done" state no longer holds; drop back to
-  // the install step so the operator can reinstall.
-  if(await doUninstall('du',$('#dUninstall')))setTimeout(()=>setStep(3),900);
+$('#rePair').onclick=()=>{ rePairing=true; renderConnection(); $('#code').value=''; $('#pairBtn').disabled=true; $('#code').focus(); };
+$('#pairCancel').onclick=()=>{ rePairing=false; renderConnection(); };
+const codeEl=$('#code');
+codeEl.addEventListener('input',()=>{ $('#pairBtn').disabled=codeEl.value.trim().length<3; });
+codeEl.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!$('#pairBtn').disabled)$('#pairBtn').click(); });
+$('#pairBtn').onclick=async()=>{
+  const apiUrl=$('#apiUrl').value.trim()||$('#apiUrl').placeholder;
+  const ok=await run($('#pairBtn'),'/api/pair',{code:codeEl.value.trim(),apiUrl},'toast_paired');
+  if(ok){ rePairing=false; renderConnection(); }
 };
 
-/* ---------- step 4: pair ---------- */
-// Show the "already paired" view or the code form depending on current
-// status. Viewing does not touch config; only an explicit re-pair submit
-// (#b3 → /api/pair) can, and runPair only saves on a successful claim.
-async function renderStep3(){
-  let s={};
-  try{ s=await api('/api/status'); }catch(e){}
-  if(s.paired){
-    $('#pBridge').textContent=s.bridgeId||'—';
-    $('#pApi').textContent=s.apiBaseUrl||s.lanUrl||'—';
-    const u=s.lanUrl||'';
-    $('#pUrl').innerHTML=u?'<a href="'+u+'" target="_blank" rel="noopener">'+u+'</a>':'—';
-    $('#p3paired').style.display='';
-    $('#p3form').style.display='none';
-  }else{
-    $('#p3paired').style.display='none';
-    $('#p3form').style.display='';
+/* ---------- features: what it does, its switches here, and what ViaVeritas has open ---------- */
+// What this version can do with each switch, and the running service's streams (read every few seconds
+// while the view shows). A feature runs while it is on here, on in ViaVeritas, and not paused.
+let R=null;
+const FEATURE_ICONS={logs:'scroll',proxy:'network',files:'folder',inventory:'cpu',inventory_personal:'user',metrics:'activity',speedtest:'gauge',terminal:'terminal'};
+const KINDS={echo:'kind_echo',terminal:'kind_terminal',exec:'kind_exec',http:'kind_http',tcp:'kind_tcp',logs:'kind_logs'};
+const featureName=k=>t('feat_'+k);
+async function loadRemote(){
+  try{ R=await api('/api/remote'); }catch(e){ return; }
+  renderFeatures();
+}
+function featureState(f){ return !f.here?'fs_off_here':f.paused?'fs_paused':!f.portal?'fs_off_portal':'fs_runs'; }
+function renderFeatures(){
+  if(!R)return;
+  // A service of another build rewrites the settings it knows as it knows them.
+  const other=R.running&&R.serviceVersion&&R.serviceVersion!==R.version;
+  $('#feVersion').hidden=!other;
+  if(other)$('#feVersionText').textContent=t('fe_version',{service:R.serviceVersion,own:R.version});
+  const list=$('#feList'); list.innerHTML='';
+  R.features.forEach(f=>{
+    const row=document.createElement('div'); row.className='fitem';
+    row.innerHTML=icon(FEATURE_ICONS[f.key]||'box')+'<div class="main-col"><b></b><p></p><div class="meta"></div></div>';
+    row.querySelector('b').textContent=featureName(f.key);
+    row.querySelector('p').textContent=t('feat_'+f.key+'_d');
+    const st=document.createElement('span'); st.className='flag'; st.textContent=t(featureState(f)); row.querySelector('.meta').appendChild(st);
+    const sw=document.createElement('label'); sw.className='switch';
+    sw.innerHTML='<input type="checkbox"><span></span>'; sw.querySelector('span').textContent=t('fe_here');
+    const input=sw.querySelector('input'); input.checked=f.here;
+    input.onchange=async()=>{
+      const on=input.checked;
+      if(on&&f.remote&&!confirm(t('fe_confirm_remote',{name:featureName(f.key)}))){ input.checked=false; return; }
+      input.disabled=true;
+      try{ await api('/api/features',{key:f.key,on}); toast(t(on?'toast_feature_on':'toast_feature_off')); }
+      catch(e){ input.checked=!on; toast(e.message||String(e),true); }
+      finally{ input.disabled=false; await loadRemote(); refresh(); pollLogs(); }
+    };
+    row.appendChild(sw); list.appendChild(row);
+  });
+
+  renderUpdates();
+  renderSessions();
+  renderLogSources();
+  $('#fePauseCard').hidden=!R.anyRemote;
+  $('#fePause').checked=!!R.paused;
+
+  const box=$('#feStreams'), open=R.streams||[];
+  box.innerHTML='';
+  $('#feNotRunning').hidden=!!R.running;
+  $('#feStreamsEmpty').hidden=!R.running||open.length>0;
+  open.forEach(s=>{
+    const row=document.createElement('div'); row.className='fitem';
+    row.innerHTML=icon({terminal:'terminal',exec:'play',http:'network',tcp:'network',logs:'scroll'}[s.kind]||'activity')+'<div class="main-col"><b></b><div class="meta"></div></div>';
+    const kind=KINDS[s.kind]?t(KINDS[s.kind]):s.kind;
+    row.querySelector('b').textContent=kind;
+    const meta=row.querySelector('.meta'), put=x=>{ const e=document.createElement('span'); e.textContent=x; meta.appendChild(e); };
+    const u=s.user||{}, who=u.name&&u.email?u.name+' <'+u.email+'>':(u.email||u.name||t('st_someone'));
+    put(t('st_by',{who})); put(t('st_since',{ago:ago(s.opened_at)})); put(t('st_bytes',{in:bytes(s.bytes_in),out:bytes(s.bytes_out)}));
+    const end=document.createElement('button'); end.type='button'; end.className='btn btn-danger-outline btn-sm';
+    end.innerHTML='<span class="sp"></span><span></span>'; end.lastChild.textContent=t('fe_end');
+    end.onclick=async()=>{ if(!confirm(t('fe_end_confirm',{kind})))return; if(await run(end,'/api/sessions/end',{id:s.id},'toast_ended'))loadRemote(); };
+    row.appendChild(end); box.appendChild(row);
+  });
+}
+// Updates: only when someone asks. How the update in progress or the last one that failed stands, and
+// Update now while ViaVeritas offers a newer version.
+function renderUpdates(){
+  const u=R.updates; if(!u)return;
+  const s=u.status||null, parts=[];
+  if(!R.running) parts.push(t('up_not_running'));
+  else if(s&&(s.phase==='downloading'||s.phase==='installing')) parts.push(t('up_busy',{v:s.to}));
+  else if(s&&s.phase==='restarting') parts.push(t('up_restarting',{v:s.to}));
+  else {
+    if(s&&s.phase==='failed') parts.push(t('up_failed',{v:s.to,e:s.error||''}));
+    parts.push(s&&s.available?t('up_avail',{v:s.available}):t('up_none'));
+  }
+  $('#upState').textContent=parts.join(' ');
+  const now=$('#upNow'), avail=R.running&&s&&s.available&&!['downloading','installing','restarting'].includes(s.phase);
+  now.hidden=!avail; if(avail) now.querySelector('.lbl').textContent=t('up_now',{v:s.available});
+}
+$('#upNow').onclick=async()=>{ if(await run($('#upNow'),'/api/updates/now',{},'toast_up_started'))loadRemote(); };
+
+// Who terminals and commands run as, and whether the screen says when one starts.
+function renderSessions(){
+  const s=R.sessions; if(!s)return;
+  $$('#ssRunAs button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.runas===s.runAs)));
+  $('#ssRunAsHint').textContent=t(s.runAs==='system'?'ss_system_hint':'ss_user_hint');
+  $('#ssNotices').checked=!!s.notices;
+}
+$$('#ssRunAs button').forEach(b=>b.onclick=async()=>{
+  const runAs=b.dataset.runas; if(!R||!R.sessions||R.sessions.runAs===runAs)return;
+  if(runAs==='system'&&!confirm(t('ss_system_confirm')))return;
+  try{ await api('/api/sessions/run-as',{runAs}); toast(t('toast_saved')); }
+  catch(e){ toast(e.message||String(e),true); }
+  finally{ await loadRemote(); pollLogs(); }
+});
+$('#ssNotices').onchange=async()=>{
+  const el=$('#ssNotices'), on=el.checked; el.disabled=true;
+  try{ await api('/api/sessions/notices',{on}); toast(t('toast_saved')); }
+  catch(e){ el.checked=!on; toast(e.message||String(e),true); }
+  finally{ el.disabled=false; await loadRemote(); pollLogs(); }
+};
+
+// The logs ViaVeritas may read: the bridge's own always, and what is added here.
+let lgKind=null;
+const LG_PLACEHOLDERS={file:'/var/log/nginx/*.log',journal:'nginx.service',macos:'subsystem == "com.example.app"',eventlog:'System'};
+function renderLogSources(){
+  const l=R.logSources; if(!l)return;
+  const kinds=l.kinds||['file'];
+  if(!lgKind||!kinds.includes(lgKind))lgKind=kinds[0];
+  const seg=$('#lgKind'); seg.innerHTML='';
+  kinds.forEach(k=>{ const b=document.createElement('button'); b.type='button'; b.textContent=t('lg_kinds_'+k); b.setAttribute('aria-pressed',String(k===lgKind)); b.onclick=()=>{ lgKind=k; renderLogSources(); }; seg.appendChild(b); });
+  $('#lgTargetLabel').textContent=t('lg_t_'+lgKind);
+  $('#lgTargetHint').textContent=t('lg_h_'+lgKind);
+  $('#lgTarget').placeholder=lgKind==='file'&&l.windows?'C:\\logs\\app.log':LG_PLACEHOLDERS[lgKind]||'';
+  const box=$('#lgList'); box.innerHTML='';
+  (l.sources||[]).forEach(x=>{
+    const row=document.createElement('div'); row.className='fitem';
+    row.innerHTML=icon('scroll')+'<div class="main-col"><b></b><div class="meta"></div></div>';
+    row.querySelector('b').textContent=x.name;
+    const meta=row.querySelector('.meta'), put=v=>{ const e=document.createElement('span'); e.textContent=v; meta.appendChild(e); };
+    put(x.kind==='bridge'?l.bridgeLog:(x.target||t('lg_everything')));
+    if(x.kind==='bridge'){ const e=document.createElement('span'); e.className='flag'; e.textContent=t('lg_own'); meta.appendChild(e); box.appendChild(row); return; }
+    const rm=document.createElement('button'); rm.type='button'; rm.className='btn btn-danger-outline btn-sm';
+    rm.innerHTML='<span class="sp"></span><span></span>'; rm.lastChild.textContent=t('lg_remove');
+    rm.onclick=async()=>{ if(!confirm(t('lg_remove_confirm',{name:x.name})))return; if(await run(rm,'/api/logs/remove',{id:x.id},'toast_lg_removed'))loadRemote(); };
+    row.appendChild(rm); box.appendChild(row);
+  });
+  if(!l.here){ const n=document.createElement('p'); n.className='muted'; n.style.margin='14px 0 0'; n.textContent=t('lg_off'); box.appendChild(n); }
+}
+$('#lgAdd').onclick=async()=>{
+  const ok=await run($('#lgAdd'),'/api/logs/add',{kind:lgKind,target:$('#lgTarget').value.trim(),name:$('#lgName').value.trim()},'toast_lg_added');
+  if(ok){ $('#lgTarget').value=''; $('#lgName').value=''; loadRemote(); }
+};
+
+$('#fePause').onchange=async()=>{
+  const el=$('#fePause'), paused=el.checked; el.disabled=true;
+  try{ await api('/api/pause',{paused}); toast(t(paused?'toast_paused':'toast_resumed')); }
+  catch(e){ el.checked=!paused; toast(e.message||String(e),true); }
+  finally{ el.disabled=false; await loadRemote(); pollLogs(); }
+};
+
+/* ---------- settings ---------- */
+let cfgFilled=false, logDirShown='';
+function renderSettings(){
+  if(!cfgFilled&&S.version){
+    const set=(id,v)=>{ const el=$(id); if(el&&v!=null&&v!==0&&v!=='')el.value=v; };
+    set('#cfgBridgePort',S.bridgePort); set('#cfgScanInterval',S.scanInterval); set('#cfgLogDir',S.logDir); $('#cfgHidden').checked=!!S.includeHidden;
+    logDirShown=S.logDir||''; cfgFilled=true;
+  }
+  fill($('#seInstallP'),'se_install_p',{dir:S.installDir||''});
+  const dl=$('#seFields'); dl.innerHTML='';
+  const row=(k,v)=>{ const dt=document.createElement('dt'); dt.textContent=k; const dd=document.createElement('dd'); dd.textContent=v; dl.append(dt,dd); };
+  row(t('installed_in'),S.installDir||'—'); row(t('f_this_copy'),S.version||'—'); row(t('f_installed'),S.installedVersion||(S.programInstalled?'—':t('f_none')));
+  const v={old:S.installedVersion||'',new:S.version||'',dir:S.installDir||''}, lbl=$('#seInstall .lbl'), btn=$('#seInstall');
+  const here=installed();
+  // Not installed: Install. Installed: Restart and Uninstall, and Update when this copy is newer.
+  let state='st_none', action=t('btn_install'), offer=!here;
+  if(S.installState==='elsewhere'){ state='st_elsewhere'; offer=true; }
+  else if(here&&S.updateAvailable){ state='st_update'; action=t('btn_update_to',{new:v.new}); offer=true; }
+  else if(here&&S.newerInstalled) state='st_newer';
+  else if(here) state='st_same';
+  fill($('#seStateText'),state,v);
+  btn.hidden=!offer; lbl.textContent=action;
+  $('#seRestart').hidden=!here; $('#seUninstall').hidden=!here; $('#seUninstallHint').hidden=!here;
+}
+$('#cfgSave').onclick=async()=>{
+  const num=id=>{ const n=parseInt(($(id).value||'').trim(),10); return Number.isFinite(n)&&n>0?n:0; };
+  const body={bridgePort:num('#cfgBridgePort'),scanInterval:num('#cfgScanInterval'),includeHidden:$('#cfgHidden').checked};
+  // The log folder is sent only when changed: what shows at first is the default's own path.
+  const ld=($('#cfgLogDir').value||'').trim(); if(ld!==logDirShown)body.logDir=ld;
+  if(await run($('#cfgSave'),'/api/configure',body,'toast_saved'))logDirShown=ld;
+};
+
+/* ---------- activity: the bridge's log, live ---------- */
+// An entry is a line the bridge wrote (time, level, source, message) with the lines that carry on after it
+// (what a command printed, a stack). Following the end is on while the view is scrolled to it: scrolling
+// up stops it, and scrolling back down starts it again.
+const LOG={offset:null,lines:[],problems:0,path:'',levels:new Set(),sources:new Set(),query:'',stick:true};
+const LINE=/^(\d\d:\d\d:\d\d\.\d{3})\s+(ERROR|WARN|OK|INFO|DEBUG)\s+\[([^\]]*)\]\s?(.*)$/;
+// Colour codes a service from before plain log files wrote.
+const ANSI=/\x1b\[[0-9;]*m/g;
+const LEVELS=[
+  {value:'ERROR',icon:'circleX',key:'lv_error'},
+  {value:'WARN',icon:'alert',key:'lv_warn'},
+  {value:'INFO',icon:'info',key:'lv_info'},
+  {value:'OK',icon:'circleCheck',key:'lv_ok'},
+  {value:'DEBUG',icon:'bug',key:'lv_debug'},
+];
+const LEVEL_ICON=Object.fromEntries(LEVELS.map(it=>[it.value,it.icon]));
+// The bridge's parts by the names people know them by; another shows as it is written.
+const SOURCES={setup:'src_setup',bridge:'src_bridge',watch:'src_watch',sync:'src_sync',heartbeat:'src_heartbeat',apisocket:'src_apisocket',commands:'src_commands',bridgesrv:'src_bridgesrv',config:'src_config',files:'src_files',pair:'src_pair',streams:'src_streams',control:'src_control',monitoring:'src_monitoring',remote:'src_remote',selfupdate:'src_selfupdate',telemetry:'src_telemetry',proxy:'src_proxy',logs:'src_logs'};
+const sourceName=src=>SOURCES[src]?t(SOURCES[src]):src;
+
+function addText(text,reset){
+  if(reset)LOG.lines=[];
+  const parts=text.replace(ANSI,'').split('\n'); if(parts.length&&parts[parts.length-1]==='')parts.pop();
+  LOG.lines.push(...parts);
+  if(LOG.lines.length>3000)LOG.lines=LOG.lines.slice(-3000);
+}
+function entries(){
+  const out=[];
+  for(const raw of LOG.lines){
+    const m=LINE.exec(raw);
+    if(m)out.push({raw:[raw],time:m[1],level:m[2],source:m[3].trim(),msg:m[4],extra:[]});
+    else if(out.length){ out[out.length-1].extra.push(raw); out[out.length-1].raw.push(raw); }
+    else out.push({raw:[raw],time:'',level:'',source:'',msg:raw,extra:[]});
+  }
+  return out;
+}
+function entryEl(e){
+  const d=document.createElement('div'); d.className='ll'+(e.level?' '+e.level:'');
+  if(!e.level){ d.textContent=e.msg; return d; }
+  const ts=document.createElement('span'); ts.className='t'; ts.textContent=e.time+'  ';
+  const lv=document.createElement('span'); lv.className='lv'; lv.innerHTML=icon(LEVEL_ICON[e.level]); lv.append(e.level);
+  const c=document.createElement('span'); c.className='c'; c.textContent=' ['+e.source+'] ';
+  d.append(ts,lv,c,document.createTextNode(e.msg));
+  for(const x of e.extra){ const xl=document.createElement('span'); xl.className='x'; xl.textContent=x; d.appendChild(xl); }
+  return d;
+}
+const filtering=()=>LOG.levels.size||LOG.sources.size||LOG.query;
+function shownEntries(all){
+  const q=LOG.query.toLowerCase();
+  return all.filter(e=>(!LOG.levels.size||LOG.levels.has(e.level))&&(!LOG.sources.size||LOG.sources.has(e.source))&&(!q||e.raw.join('\n').toLowerCase().includes(q)));
+}
+function renderLogs(){
+  const all=entries();
+  // The sidebar's mark: an error lately, not every warning the log ever held.
+  LOG.problems=all.slice(-50).filter(e=>e.level==='ERROR').length;
+  const shown=shownEntries(all), tall=$('#logTall');
+  tall.innerHTML='';
+  if(!shown.length){
+    const empty=document.createElement('div'); empty.className='logempty';
+    empty.textContent=t(all.length?'ac_none_match':'ac_empty'); tall.appendChild(empty);
+  }else{ const frag=document.createDocumentFragment(); shown.forEach(e=>frag.appendChild(entryEl(e))); tall.appendChild(frag); }
+  if(LOG.stick)scrollLogEnd();
+  if(LOG.path)fill($('#acPath'),'ac_path',{path:LOG.path});
+  $('#badgeActivity').hidden=!LOG.problems;
+  renderLogFilters(all);
+}
+function scrollLogEnd(){ const el=$('#logTall'); el.scrollTop=el.scrollHeight; }
+$('#logTall').addEventListener('scroll',()=>{ const el=$('#logTall'); LOG.stick=el.scrollHeight-el.scrollTop-el.clientHeight<24; },{passive:true});
+
+/* A pill and its menu of choices, any number of them, the portal's MultiOptionFilter: the menu stays open
+   while they are ticked; Escape or a click elsewhere closes it. */
+function multiFilter(box,{icon:ic,labelKey,values,options}){
+  box.innerHTML='';
+  const chosen=[...values];
+  const btn=document.createElement('button'); btn.type='button'; btn.className='fbtn'+(chosen.length?' active':'');
+  btn.setAttribute('aria-haspopup','menu'); btn.setAttribute('aria-expanded','false');
+  const name=t(labelKey), picked=options.filter(o=>values.has(o.value)).map(o=>o.label);
+  btn.innerHTML=icon(ic)+'<span class="flabel"></span><span class="fval"></span>'+icon('chevronDown','ic chev');
+  btn.querySelector('.flabel').textContent=name; btn.querySelector('.fval').textContent=picked.length>2?t('ac_n_chosen',{n:picked.length}):picked.join(', ');
+  btn.setAttribute('aria-label',picked.length?name+': '+picked.join(', '):name);
+  const menu=document.createElement('div'); menu.className='menu left'; menu.setAttribute('role','menu'); menu.setAttribute('aria-label',name); menu.hidden=!box.dataset.open;
+  if(!options.length){ const e=document.createElement('div'); e.className='logempty'; e.style.padding='10px'; e.textContent=t('ac_none_yet'); menu.appendChild(e); }
+  for(const o of options){
+    const item=document.createElement('button'); item.type='button'; item.setAttribute('role','menuitemcheckbox'); item.tabIndex=-1;
+    item.setAttribute('aria-checked',String(values.has(o.value))); if(o.cls)item.classList.add(o.cls);
+    item.innerHTML=(o.icon?icon(o.icon):'')+'<span class="name"></span><span class="count"></span>'+icon('check','ic tick');
+    item.querySelector('.name').textContent=o.label; item.querySelector('.count').textContent=o.count!=null?nf(o.count):'';
+    item.onclick=()=>{ values.has(o.value)?values.delete(o.value):values.add(o.value); box.dataset.focus=o.value; LOG.stick=true; renderLogs(); };
+    menu.appendChild(item);
+  }
+  if(values.size){
+    const foot=document.createElement('div'); foot.className='menu-foot';
+    const n=document.createElement('span'); n.textContent=t('ac_n_chosen',{n:values.size});
+    const clear=document.createElement('button'); clear.type='button'; clear.textContent=t('ac_reset');
+    clear.onclick=()=>{ values.clear(); LOG.stick=true; renderLogs(); box.querySelector('.fbtn').focus(); };
+    foot.append(n,clear); menu.appendChild(foot);
+  }
+  const open=()=>{ box.dataset.open='1'; menu.hidden=false; btn.setAttribute('aria-expanded','true'); (menu.querySelector('[role=menuitemcheckbox]')||menu.querySelector('button'))?.focus(); };
+  const close=refocus=>{ delete box.dataset.open; menu.hidden=true; btn.setAttribute('aria-expanded','false'); if(refocus)btn.focus(); };
+  btn.onclick=()=>menu.hidden?open():close(false);
+  btn.addEventListener('keydown',e=>{ if(e.key==='ArrowDown'&&menu.hidden){ e.preventDefault(); open(); } });
+  menu.addEventListener('keydown',e=>{
+    const items=[...menu.querySelectorAll('button')], i=items.indexOf(document.activeElement);
+    if(e.key==='ArrowDown'||e.key==='ArrowUp'){ e.preventDefault(); items[(i+(e.key==='ArrowDown'?1:-1)+items.length)%items.length]?.focus(); }
+    else if(e.key==='Escape'){ e.preventDefault(); close(true); }
+    else if(e.key==='Tab')close(false);
+  });
+  box.append(btn,menu);
+  if(!menu.hidden){ btn.setAttribute('aria-expanded','true'); const f=box.dataset.focus&&[...menu.querySelectorAll('[role=menuitemcheckbox]')].find((it,k)=>options[k]&&options[k].value===box.dataset.focus); (f||menu.querySelector('button'))?.focus(); }
+}
+document.addEventListener('pointerdown',e=>{ $$('.filter').forEach(box=>{ if(box.dataset.open&&!box.contains(e.target)){ delete box.dataset.open; box.querySelector('.menu').hidden=true; box.querySelector('.fbtn').setAttribute('aria-expanded','false'); } }); });
+function renderLogFilters(all){
+  const count=key=>all.reduce((n,e)=>n+(e[key.k]===key.v?1:0),0);
+  multiFilter($('#levelFilter'),{icon:'layers',labelKey:'ac_level',values:LOG.levels,
+    options:LEVELS.map(l=>({value:l.value,label:t(l.key),icon:l.icon,cls:l.value,count:count({k:'level',v:l.value})}))});
+  const seen=[...new Set(all.map(e=>e.source).filter(Boolean))].sort((a,b)=>sourceName(a).localeCompare(sourceName(b),LANG));
+  multiFilter($('#sourceFilter'),{icon:'tag',labelKey:'ac_source',values:LOG.sources,
+    options:seen.map(src=>({value:src,label:sourceName(src),icon:'box',count:count({k:'source',v:src})}))});
+  $('#logClear').hidden=!filtering();
+}
+let polling=false;
+async function pollLogs(){
+  if(polling)return; polling=true;
+  try{
+    const first=LOG.offset==null;
+    const r=await api('/api/logs?'+(first?'lines=1000':'after='+LOG.offset));
+    LOG.path=r.path||LOG.path;
+    const changed=first||r.reset||!!r.text;
+    if(changed)addText(r.text||'',first||r.reset);
+    LOG.offset=r.offset||0;
+    // An open menu stays as it is while lines arrive.
+    if(changed&&!$$('.filter').some(b=>b.dataset.open))renderLogs();
+  }catch(e){}finally{ polling=false; }
+}
+let queryTimer;
+$('#logQuery').addEventListener('input',()=>{
+  $('#logQueryClear').hidden=!$('#logQuery').value;
+  clearTimeout(queryTimer); queryTimer=setTimeout(()=>{ LOG.query=$('#logQuery').value.trim(); LOG.stick=true; renderLogs(); },150);
+});
+$('#logQueryClear').onclick=()=>{ $('#logQuery').value=''; $('#logQueryClear').hidden=true; LOG.query=''; LOG.stick=true; renderLogs(); $('#logQuery').focus(); };
+$('#logClear').onclick=()=>{ LOG.levels.clear(); LOG.sources.clear(); LOG.query=''; $('#logQuery').value=''; $('#logQueryClear').hidden=true; LOG.stick=true; renderLogs(); };
+// Copies what is shown, as the bridge wrote it.
+$('#logCopy').onclick=()=>navigator.clipboard.writeText(shownEntries(entries()).flatMap(e=>e.raw).join('\n')).then(()=>toast(t('toast_copied')));
+
+/* ---------- language ---------- */
+/* The languages, each in its own words, with the flag of where it is most spoken (the portal's LANGUAGE_NAMES and languageFlag). */
+const LANGUAGES={en:'English',el:'Ελληνικά'};
+function languageFlag(code){
+  try{ const region=new Intl.Locale(code).maximize().region; return region&&/^[A-Z]{2}$/.test(region)?String.fromCodePoint(...[...region].map(c=>0x1f1e6+c.charCodeAt(0)-65)):''; }
+  catch(e){ return ''; }
+}
+const langBtn=$('#langBtn'), langList=$('#langList');
+function langItems(){ return [...langList.querySelectorAll('[role=menuitemradio]')]; }
+function renderLangMenu(){
+  $('#langFlag').textContent=languageFlag(LANG);
+  const name=$('#langName'); name.textContent=LANGUAGES[LANG]; name.lang=LANG;
+  langBtn.setAttribute('aria-label',t('lang_label',{language:LANGUAGES[LANG]}));
+  langList.setAttribute('aria-label',t('lang_menu'));
+  langList.innerHTML='';
+  for(const [code,label] of Object.entries(LANGUAGES)){
+    const b=document.createElement('button'); b.type='button'; b.setAttribute('role','menuitemradio'); b.tabIndex=-1;
+    b.setAttribute('aria-checked',String(code===LANG)); b.dataset.lang=code;
+    b.innerHTML='<span aria-hidden="true"></span><span class="name"></span>'+icon('check');
+    b.firstChild.textContent=languageFlag(code); const n=b.querySelector('.name'); n.textContent=label; n.lang=code;
+    b.onclick=()=>{ closeLangMenu(true); LANG=code; try{localStorage.setItem('bridgeLang',LANG)}catch(e){} applyLang(); };
+    langList.appendChild(b);
   }
 }
-$('#back3p').onclick=()=>setStep(3);
-$('#p3continue').onclick=async()=>{ await finish(); setStep(5); };
-$('#rePair').onclick=()=>{
-  $('#p3paired').style.display='none';
-  $('#p3form').style.display='';
-  const c=$('#code'); c.value=''; $('#b3').disabled=true; c.focus();
-};
-$('#back3').onclick=()=>setStep(3);
-const codeEl=$('#code');
-codeEl.addEventListener('input',()=>{ $('#b3').disabled=codeEl.value.trim().length<3; });
-codeEl.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!$('#b3').disabled)$('#b3').click(); });
-$('#b3').onclick=async()=>{
-  const code=codeEl.value.trim();
-  const apiUrl=$('#apiUrl').value.trim()||$('#apiUrl').placeholder;
-  const ok=await logRun(3,$('#b3'),async push=>{
-    const r=await api('/api/pair',{code,apiUrl});push(r.output||'');return r.output;
-  });
-  if(ok){ await finish(); setTimeout(()=>setStep(5),650); }
-};
+function openLangMenu(){
+  langList.hidden=false; langBtn.setAttribute('aria-expanded','true');
+  const items=langItems(); (items.find(it=>it.getAttribute('aria-checked')==='true')||items[0]).focus();
+}
+function closeLangMenu(refocus){
+  if(langList.hidden)return;
+  langList.hidden=true; langBtn.setAttribute('aria-expanded','false');
+  if(refocus)langBtn.focus();
+}
+langBtn.onclick=()=>langList.hidden?openLangMenu():closeLangMenu(false);
+langList.addEventListener('keydown',e=>{
+  const items=langItems(), i=items.indexOf(document.activeElement);
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){ e.preventDefault(); items[(i+(e.key==='ArrowDown'?1:-1)+items.length)%items.length].focus(); }
+  else if(e.key==='Home'||e.key==='End'){ e.preventDefault(); items[e.key==='Home'?0:items.length-1].focus(); }
+  else if(e.key==='Escape'||e.key==='Tab'){ if(e.key==='Escape')e.preventDefault(); closeLangMenu(e.key==='Escape'); }
+});
+langBtn.addEventListener('keydown',e=>{ if(e.key==='ArrowDown'&&langList.hidden){ e.preventDefault(); openLangMenu(); } });
+document.addEventListener('pointerdown',e=>{ if(!e.target.closest('.langmenu'))closeLangMenu(false); });
 
-async function finish(){
-  try{
-    const s=await api('/api/status');
-    $('#dBridge').textContent=s.bridgeId||'—';
-    $('#dData').textContent=s.dataRoot||'—';
-    const u=s.lanUrl||'';
-    $('#dUrl').innerHTML=u?'<a href="'+u+'" target="_blank" rel="noopener">'+u+'</a>':'—';
-  }catch(e){}
+function applyLang(){
+  document.documentElement.lang=LANG; document.title=t('title');
+  $$('[data-i18n]').forEach(e=>{ e.textContent=t(e.dataset.i18n); });
+  $$('[data-i18n-ph]').forEach(e=>{ e.placeholder=t(e.dataset.i18nPh); });
+  $$('[data-i18n-aria]').forEach(e=>{ e.setAttribute('aria-label',t(e.dataset.i18nAria)); });
+  renderLangMenu();
+  render(); renderLogs(); renderFeatures();
 }
 
-$('#startOver').onclick=async()=>{ setStep(1); await loadConfigForm(); await browse(pickedPath||''); };
-
-/* keep-alive: lets the local setup server shut itself down when this page
-   is closed (prompt close via the beacon; the server's idle watchdog is the
-   backstop if the beacon is missed). /api/ping & /api/bye are loopback-only,
-   no CSRF — sendBeacon can't set headers. */
+/* keep-alive: the local setup server stops itself when this page closes (the beacon,
+   else its idle watchdog). /api/ping and /api/bye are loopback-only, without CSRF. */
 fetch('/api/ping',{method:'POST'}).catch(()=>{});
 setInterval(()=>{ fetch('/api/ping',{method:'POST'}).catch(()=>{}); },5000);
 addEventListener('pagehide',()=>{ try{ navigator.sendBeacon('/api/bye'); }catch(e){} });
+// Local reads, so cheap: the figures every 10 s, the log every 2 s, while the page shows.
+setInterval(()=>{ if(!document.hidden)refresh(); },10000);
+setInterval(()=>{ if(!document.hidden)pollLogs(); },2000);
+setInterval(()=>{ if(!document.hidden&&VIEW==='features')loadRemote(); },3000);
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ refresh(); pollLogs(); if(VIEW==='features')loadRemote(); } });
 
 /* ---------- boot ---------- */
 (async function init(){
+  paintIcons();
   applyLang();
-  let s={};
-  try{ s=await api('/api/status'); }catch(e){}
-  if(s.apiBaseUrl)$('#apiUrl').placeholder=s.apiBaseUrl;
-  $('#bUninstall').style.display=s.serviceInstalled?'':'none';
-  await loadConfigForm();
-  // resume at the right step if partially configured:
-  // 1 folder · 2 preview · 4 pair (install (3) is skipped on resume once a
-  // bridge port is configured) · >4 done.
-  let start=1;
-  if(s.dataRoot)start=2;
-  if(s.serviceInstalled)start=4;
-  if(s.paired){ await finish(); setStep(5); }
-  else {
-    setStep(start);
-    await browse(s.dataRoot||s.suggestedRoot||'');
-    if(start===2) loadPreview();
-    if(start===4) renderStep3();
-  }
+  await refresh();
+  await pollLogs();
+  setView(location.hash.slice(1)||'overview',false);
 })();
 </script>
 </body>

@@ -149,3 +149,15 @@ func ResetIndex() error {
 	resetCaughtUp()
 	return nil
 }
+
+// LookupIndex returns the index record for relPath for echoing in Get without
+// re-stat-ing or recomputing the file-id. ok=false (empty record) when relPath
+// isn't indexed yet (e.g. a file the scan hasn't observed).
+func LookupIndex(relPath string) (deviceFileIno, mime, apiFileID string, size int64, modUnix int64, ok bool) {
+	idx, _ := loadIndex()
+	e, found := idx.Files[relPath]
+	if !found {
+		return "", "", "", 0, 0, false
+	}
+	return e.FileID, e.MIME, e.APIFileID, e.Size, e.ModUnix, true
+}

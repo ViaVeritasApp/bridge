@@ -22,3 +22,12 @@ func (osImpl) ComputeFileID(_ string, info os.FileInfo) (id string, ok bool) {
 	ino := uint64(st.Ino)
 	return fmt.Sprintf("%x:%x", dev, ino), true
 }
+
+// DeviceOf is the filesystem a file is on, so a folder's scan stays on its own.
+func DeviceOf(info os.FileInfo) (uint64, bool) {
+	st, ok := info.Sys().(*syscall.Stat_t)
+	if !ok {
+		return 0, false
+	}
+	return uint64(st.Dev), true
+}

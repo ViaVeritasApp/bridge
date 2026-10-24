@@ -20,9 +20,9 @@ func TestResolveUnderRoot_HappyPaths(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.in, func(t *testing.T) {
-			got, err := resolveUnderRoot(root, c.in)
+			got, err := ResolveUnderRoot(root, c.in)
 			if err != nil {
-				t.Fatalf("resolveUnderRoot(%q): %v", c.in, err)
+				t.Fatalf("ResolveUnderRoot(%q): %v", c.in, err)
 			}
 			if !strings.HasSuffix(got, c.wantSuffix) {
 				t.Errorf("got %q, want suffix %q", got, c.wantSuffix)
@@ -56,8 +56,8 @@ func TestResolveUnderRoot_Rejects(t *testing.T) {
 	}
 	for _, c := range rejects {
 		t.Run(c.name, func(t *testing.T) {
-			if _, err := resolveUnderRoot(root, c.in); err == nil {
-				t.Errorf("resolveUnderRoot(%q) succeeded; want error", c.in)
+			if _, err := ResolveUnderRoot(root, c.in); err == nil {
+				t.Errorf("ResolveUnderRoot(%q) succeeded; want error", c.in)
 			}
 		})
 	}
@@ -68,7 +68,7 @@ func TestResolveUnderRoot_Rejects(t *testing.T) {
 // /confirm relied on this).
 func TestResolveUnderRoot_LeadingSlashIsRelative(t *testing.T) {
 	root := t.TempDir()
-	got, err := resolveUnderRoot(root, "/inside.pdf")
+	got, err := ResolveUnderRoot(root, "/inside.pdf")
 	if err != nil {
 		t.Fatalf("expected leading-slash path to be treated as relative: %v", err)
 	}
@@ -92,7 +92,7 @@ func TestResolveUnderRoot_SymlinkEscape(t *testing.T) {
 	// root still looks under root lexically. That's a known limitation; the real
 	// defence is the API's authorize step rejecting paths the user can't access.
 	// Here we assert the lexical check accepts the path.
-	got, err := resolveUnderRoot(root, "link/inside.pdf")
+	got, err := ResolveUnderRoot(root, "link/inside.pdf")
 	if err != nil {
 		t.Skipf("symlink rejected by lexical check on this OS — fine, no regression")
 	}
