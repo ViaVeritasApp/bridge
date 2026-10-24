@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"bridge/internal/config"
+	"bridge/internal/control"
 	"bridge/internal/heartbeat"
 	"bridge/internal/logx"
 	"bridge/internal/pair"
@@ -100,10 +101,6 @@ func runConfigure(cmd *cobra.Command, _ []string) error {
 		v, _ := cmd.Flags().GetBool("include-hidden")
 		cfg.IncludeHidden = v
 	}
-	if cmd.Flags().Changed("socket-logs") {
-		v, _ := cmd.Flags().GetBool("socket-logs")
-		cfg.SocketLogs = v
-	}
 	if cmd.Flags().Changed("log-dir") {
 		v, _ := cmd.Flags().GetString("log-dir")
 		if v = strings.TrimSpace(v); v != "" {
@@ -175,6 +172,10 @@ func runPair(cmd *cobra.Command, args []string) error {
 	}
 
 	cfg := config.LoadOrDefaults()
+	// Its address on the network goes with the claim, so it needs a port first.
+	if err := ensurePort(&cfg); err != nil {
+		return err
+	}
 
 	urls := pair.GuessLANURLs(cfg)
 
@@ -331,7 +332,26 @@ func runStatus(_ *cobra.Command, _ []string) error {
 	section("config")
 	kv("path", config.Path(), true)
 	kv("logs", cfg.LogFile(), true)
-	kv("socket_logs", strconv.FormatBool(cfg.SocketLogs), false)
+	section("features")
+	for _, f := range config.Built {
+		kv(string(f), featureState(cfg, f), false)
+	}
+	if cfg.RemotePaused {
+		kv("remote", "paused", false)
+	}
+	section("service")
+	if st, err := control.Ask(); err == nil {
+		socket := "not connected"
+		if st.Socket.Connected {
+			socket = "connected since " + st.Socket.Since
+		} else if st.Socket.Error != "" {
+			socket = "not connected: " + st.Socket.Error
+		}
+		kv("socket", socket, true)
+		kv("streams", strconv.Itoa(len(st.Streams)), false)
+	} else {
+		kv("running", "false", false)
+	}
 	return nil
 }
 

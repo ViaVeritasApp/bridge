@@ -28,6 +28,9 @@ func InstalledVersion() string {
 
 var releaseVersion = regexp.MustCompile(`^v?(\d+)\.(\d+)\.(\d+)$`)
 
+// IsRelease reports whether v names a release (v1.2.3), not a developer's build.
+func IsRelease(v string) bool { return releaseVersion.MatchString(v) }
+
 // CompareVersions is -1, 0 or 1 for plain releases (v1.2.3), and 0 when either
 // isn't one (a developer's build): nothing is refused for it.
 func CompareVersions(a, b string) int {

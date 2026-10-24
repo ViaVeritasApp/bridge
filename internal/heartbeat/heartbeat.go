@@ -1,3 +1,9 @@
+// Package heartbeat tells ViaVeritas how the bridge stands, every Interval and
+// whenever something it reports changes (Nudge): its addresses, version,
+// folders, the last sync's outcome, this computer's feature switches and how
+// it updates. The answer brings ViaVeritas's switches, the key that checks
+// download links, the certificate for the secure address, and the release to
+// update to when there is a newer one.
 package heartbeat
 
 import (
@@ -8,9 +14,8 @@ import (
 	"net/http"
 	"os"
 	"runtime"
-	"runtime/debug"
 	"slices"
-	"strings"
+	"sync"
 	"time"
 
 	"bridge/internal/config"
@@ -18,9 +23,55 @@ import (
 	"bridge/internal/logx"
 	"bridge/internal/pair"
 	"bridge/internal/platform"
+	"bridge/internal/selfupdate"
 	"bridge/internal/tlsx"
 	"bridge/internal/watch"
 )
+
+// Interval is how often the service heartbeats when nothing changes.
+const Interval = 30 * time.Second
+
+var (
+	syncMu       sync.Mutex
+	syncErr      error
+	nudges       = make(chan struct{}, 1)
+	updateStatus func() selfupdate.Status
+)
+
+// SetUpdateStatus says where heartbeats read how updating stands.
+func SetUpdateStatus(fn func() selfupdate.Status) {
+	syncMu.Lock()
+	updateStatus = fn
+	syncMu.Unlock()
+}
+
+// SetSyncResult keeps the last sync's outcome for the next heartbeat, and
+// reports whether it differs from the one before.
+func SetSyncResult(err error) bool {
+	syncMu.Lock()
+	defer syncMu.Unlock()
+	changed := (syncErr == nil) != (err == nil) || (err != nil && syncErr.Error() != err.Error())
+	syncErr = err
+	return changed
+}
+
+// SyncResult is the last sync's outcome (nil: it succeeded, or nothing syncs).
+func SyncResult() error {
+	syncMu.Lock()
+	defer syncMu.Unlock()
+	return syncErr
+}
+
+// Nudge asks for a heartbeat now rather than at the next interval.
+func Nudge() {
+	select {
+	case nudges <- struct{}{}:
+	default:
+	}
+}
+
+// Nudged fires after Nudge.
+func Nudged() <-chan struct{} { return nudges }
 
 type beatFolder struct {
 	Name      string `json:"name"`
@@ -56,6 +107,19 @@ type beat struct {
 	OS       string       `json:"os,omitempty"`
 	Arch     string       `json:"arch,omitempty"`
 	Hostname string       `json:"hostname,omitempty"`
+	// What the socket speaks (config.Protocol), this computer's switch for every
+	// feature, whether remote access is paused, and what this version can do.
+	Protocol     int                     `json:"protocol"`
+	Features     map[config.Feature]bool `json:"features"`
+	Paused       bool                    `json:"paused"`
+	Capabilities []string                `json:"capabilities"`
+	// How the update in progress, or the last one that failed, stands.
+	Update *selfupdate.Status `json:"update,omitempty"`
+	// Who terminals and commands run as here, and whether its screen says when one starts.
+	RunAs          config.RunAs `json:"run_as"`
+	SessionNotices bool         `json:"session_notices"`
+	// The logs ViaVeritas may read here, the bridge's own first, as listed here alone.
+	LogSources []config.LogSource `json:"log_sources"`
 }
 
 // beatResp is the heartbeat response. The server fills the TLS fields only when
@@ -72,6 +136,17 @@ type beatResp struct {
 	TLSKeyPem      string   `json:"tls_key_pem,omitempty"`
 	TLSFingerprint string   `json:"tls_fingerprint,omitempty"`
 	TLSNotAfter    string   `json:"tls_not_after,omitempty"`
+	// ViaVeritas's switch for each feature; an API from before them leaves it out.
+	PortalFeatures map[config.Feature]bool `json:"portal_features,omitempty"`
+	// Update is the newer release that suits this computer, when there is one.
+	Update *selfupdate.Offer `json:"update,omitempty"`
+}
+
+// Answer is what a heartbeat brought back: OK once ViaVeritas took it, with
+// the release to update to when there is a newer one.
+type Answer struct {
+	OK     bool
+	Update *selfupdate.Offer
 }
 
 // SendNow sends a single heartbeat immediately after pairing so the API records
@@ -82,13 +157,13 @@ func SendNow(cfg config.Config) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	url := httpx.NormalizeURL(cfg.APIBaseURL, "/bridges/heartbeat")
-	Send(ctx, cfg, httpx.Client(10*time.Second), url, nil)
+	_ = Send(ctx, cfg, httpx.Client(10*time.Second), url, nil)
 }
 
 // Send posts one heartbeat to url, run right after a file-sync attempt: syncErr
 // is that attempt's outcome (nil = success), forwarded so the API sees sync
 // status. cfg is reloaded so a `configure` edit or changed LAN IP is reflected.
-func Send(ctx context.Context, cfg config.Config, client *http.Client, url string, syncErr error) {
+func Send(ctx context.Context, cfg config.Config, client *http.Client, url string, syncErr error) Answer {
 	// Reload so a `configure` edit or changed LAN IP is reflected; fall back to
 	// the caller's snapshot on error.
 	live := config.LoadOr(cfg)
@@ -101,7 +176,22 @@ func Send(ctx context.Context, cfg config.Config, client *http.Client, url strin
 		CurrentTlsFingerprint: tlsx.Fingerprint(config.Dir()),
 		HasSigningKey:         live.SigningKey != "",
 		OS:                    runtime.GOOS,
-		Arch:                  releaseArch(),
+		Arch:                  config.ReleaseArch(),
+		Protocol:              config.Protocol,
+		Features:              live.ComputerFeatures(),
+		Paused:                live.RemotePaused,
+		Capabilities:          config.Capabilities(),
+		RunAs:                 live.SessionsRunAs(),
+		SessionNotices:        live.SessionNotices(),
+		LogSources:            live.ListedLogSources(),
+	}
+	syncMu.Lock()
+	status := updateStatus
+	syncMu.Unlock()
+	if status != nil {
+		if st := status(); st.Phase != selfupdate.PhaseIdle {
+			b.Update = &st
+		}
 	}
 	for i, f := range live.Folders {
 		bf := beatFolder{Name: f.Name, Path: f.Path}
@@ -135,7 +225,7 @@ func Send(ctx context.Context, cfg config.Config, client *http.Client, url strin
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
 	if err != nil {
 		logx.Warn("heartbeat", "request build failed: %v", err)
-		return
+		return Answer{}
 	}
 	req.Header.Set("Content-Type", "application/json")
 	httpx.SetAuth(req, httpx.Auth{ClientID: cfg.ClientID, ClientSecret: cfg.ClientSecret})
@@ -145,7 +235,7 @@ func Send(ctx context.Context, cfg config.Config, client *http.Client, url strin
 	took := time.Since(start).Round(time.Millisecond)
 	if err != nil {
 		logx.Warn("heartbeat", "send failed: %v (took %s)", err, took)
-		return
+		return Answer{}
 	}
 	defer res.Body.Close()
 	if res.StatusCode >= 200 && res.StatusCode < 300 {
@@ -168,13 +258,20 @@ func Send(ctx context.Context, cfg config.Config, client *http.Client, url strin
 				c.AllowedOrigin = r.AllowedOrigin
 				logx.Info("heartbeat", "allowed origins now %v", r.AllowedOrigin)
 			}
+			if r.PortalFeatures != nil {
+				if next, changed := c.WithPortalFeatures(r.PortalFeatures); changed {
+					c = next
+					logx.Info("heartbeat", "ViaVeritas's feature switches changed")
+				}
+			}
 			if serr := config.Save(c); serr != nil {
 				logx.Warn("heartbeat", "could not persist the heartbeat's answer: %v", serr)
 			}
 		}
-	} else {
-		logx.Warn("heartbeat", "non-2xx response (status=%d, took %s)", res.StatusCode, took)
+		return Answer{OK: true, Update: r.Update}
 	}
+	logx.Warn("heartbeat", "non-2xx response (status=%d, took %s)", res.StatusCode, took)
+	return Answer{}
 }
 
 // applyCertPush stores a renewed cert when the server returns one. The server
@@ -222,22 +319,4 @@ func shortFp(fp string) string {
 		return fp
 	}
 	return fp[:12] + "…"
-}
-
-// releaseArch names this build's architecture as the release archives do
-// (amd64, arm64, armv7), so the CRM can offer the build that replaces it.
-func releaseArch() string {
-	if runtime.GOARCH != "arm" {
-		return runtime.GOARCH
-	}
-	goarm := "7"
-	if info, ok := debug.ReadBuildInfo(); ok {
-		for _, s := range info.Settings {
-			// "7", or "7,softfloat" since Go 1.22.
-			if s.Key == "GOARM" && s.Value != "" {
-				goarm, _, _ = strings.Cut(s.Value, ",")
-			}
-		}
-	}
-	return "armv" + goarm
 }

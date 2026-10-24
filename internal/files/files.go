@@ -45,6 +45,10 @@ func HandleGet(w http.ResponseWriter, r *http.Request, cfg config.Config) {
 		return
 	}
 	c := config.LoadOr(cfg)
+	if !c.Effective(config.FeatureFiles) {
+		writeJSONError(w, http.StatusForbidden, "files are switched off for this bridge")
+		return
+	}
 	if c.SigningKey == "" {
 		writeJSONError(w, http.StatusServiceUnavailable, "no signing key yet; it arrives with the next heartbeat")
 		return

@@ -222,6 +222,12 @@
   .fitem .meta{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:12px;color:var(--muted-foreground);margin-top:4px}
   .fitem .flag{display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 6px;border-radius:var(--radius-md);background:var(--tint);color:var(--foreground);font-weight:500}
   .fitem .flag.bad{background:color-mix(in srgb,var(--destructive) 12%,transparent);color:var(--destructive)}
+  .fitem p{color:var(--muted-foreground);margin-top:2px}
+  .fitem>.switch{align-self:center;margin-left:8px}
+  .fitem>.btn{align-self:center}
+  .opt{display:inline-flex;align-items:center;height:20px;padding:0 6px;margin-left:4px;border-radius:var(--radius-md);background:var(--tint);color:var(--muted-foreground);font-size:12px;font-weight:500;vertical-align:1px}
+  .switch input:disabled{opacity:.5;cursor:not-allowed}
+  .switch:has(input:disabled){cursor:not-allowed}
   .icon-btn.danger:hover{color:var(--destructive);background:color-mix(in srgb,var(--destructive) 10%,transparent)}
 
   /* ---- an action's output, and the log ---- */
@@ -320,6 +326,7 @@
       <button type="button" data-view="overview"><i data-icon="dashboard"></i><span data-i18n="nav_overview">Overview</span></button>
       <button type="button" data-view="folder"><i data-icon="folder"></i><span data-i18n="nav_folder">Folders</span><span class="badge" id="badgeFolder" hidden></span></button>
       <button type="button" data-view="connection"><i data-icon="cloud"></i><span data-i18n="nav_connection">Connection</span><span class="badge" id="badgeConnection" hidden></span></button>
+      <button type="button" data-view="features"><i data-icon="toggle"></i><span data-i18n="nav_features">Features</span><span class="badge" id="badgeFeatures" hidden></span></button>
       <button type="button" data-view="activity"><i data-icon="terminal"></i><span data-i18n="nav_activity">Activity</span><span class="badge" id="badgeActivity" hidden></span></button>
       <button type="button" data-view="settings"><i data-icon="sliders"></i><span data-i18n="nav_settings">Settings</span></button>
     </nav>
@@ -334,7 +341,7 @@
     <!-- OVERVIEW -->
     <section class="view" data-section="overview">
       <div class="head">
-        <div><h1 data-i18n="ov_h">Overview</h1><p data-i18n="ov_p">This computer's folders, kept in sync with your organization's Files in ViaVeritas.</p></div>
+        <div><h1 data-i18n="ov_h">Overview</h1><p data-i18n="ov_p">This computer, connected to your organization in ViaVeritas.</p></div>
         <div class="actions">
           <button class="btn btn-secondary" data-act="refresh"><i data-icon="refresh"></i><span class="sp"></span><span data-i18n="refresh">Refresh</span></button>
           <button class="btn btn-secondary" data-act="restart" id="ovRestart"><i data-icon="power"></i><span class="sp"></span><span data-i18n="restart">Restart</span></button>
@@ -343,11 +350,11 @@
 
       <div id="guide" class="card card-pad" hidden>
         <h2 data-i18n="guide_h">Set up this bridge</h2>
-        <p class="sub" data-i18n="guide_p">Three steps, once. After that it runs by itself, even after the computer restarts.</p>
+        <p class="sub" data-i18n="guide_p">Two steps, once. After that it runs by itself, even after the computer restarts.</p>
         <div class="guide">
-          <div class="gstep" id="gFolder"><span class="num">1</span><b data-i18n="g1_t">Choose the folders</b><p data-i18n="g1_p">The folders on this computer your team should reach from ViaVeritas: as many as you like, none inside another.</p><button class="btn btn-secondary btn-sm" data-go="folder" data-i18n="g1_b">Choose</button></div>
-          <div class="gstep" id="gInstall"><span class="num">2</span><b data-i18n="g2_t">Install it</b><p id="g2p"></p><button class="btn btn-secondary btn-sm" data-act="install"><span class="sp"></span><span data-i18n="g2_b">Install</span></button></div>
-          <div class="gstep" id="gPair"><span class="num">3</span><b data-i18n="g3_t">Pair with ViaVeritas</b><p data-i18n="g3_p">In ViaVeritas, Bridges › Pair a bridge gives a code to enter here.</p><button class="btn btn-secondary btn-sm" data-go="connection" data-i18n="g3_b">Pair</button></div>
+          <div class="gstep" id="gInstall"><span class="num">1</span><b data-i18n="g2_t">Install it</b><p id="g2p"></p><button class="btn btn-secondary btn-sm" data-act="install"><span class="sp"></span><span data-i18n="g2_b">Install</span></button></div>
+          <div class="gstep" id="gPair"><span class="num">2</span><b data-i18n="g3_t">Pair with ViaVeritas</b><p data-i18n="g3_p">In ViaVeritas, Bridges › Pair a bridge gives a code to enter here.</p><button class="btn btn-secondary btn-sm" data-go="connection" data-i18n="g3_b">Pair</button></div>
+          <div class="gstep" id="gFolder"><span class="num">3</span><b><span data-i18n="g1_t">Choose folders to sync</span> <span class="opt" data-i18n="g_optional">Optional</span></b><p data-i18n="g1_p">Only if your team should reach files on this computer from ViaVeritas: as many as you like, none inside another. You can add them any time.</p><button class="btn btn-secondary btn-sm" data-go="folder" data-i18n="g1_b">Choose</button></div>
         </div>
       </div>
 
@@ -366,6 +373,8 @@
         <div class="row"><div class="grow"><h2 data-i18n="fo_list">Synced folders</h2><p class="sub" style="margin:0" data-i18n="fo_list_p">Each is a folder of its own inside the bridge's folder in Files. None may be inside another.</p></div>
           <button class="btn btn-primary btn-sm" id="foAdd"><i data-icon="plus"></i><span data-i18n="fo_add">Add a folder</span></button></div>
         <div class="folders" id="foList"></div>
+        <p class="muted" id="foEmpty" style="margin-top:14px" hidden data-i18n="fo_empty">No folder is synced. Add one if your team should reach files on this computer from ViaVeritas; the bridge works without.</p>
+        <div id="filesOff" class="note warn" style="margin-top:14px" hidden><i data-icon="alert"></i><span class="txt" id="filesOffText"></span></div>
         <div id="browserBox" hidden>
           <h2 style="margin-top:18px" data-i18n="fo_add_h">Add a folder</h2>
           <div class="browser">
@@ -386,7 +395,7 @@
         </div>
       </div>
 
-      <div class="card card-pad">
+      <div class="card card-pad" id="preCard">
         <div class="row"><div class="grow"><h2 data-i18n="pre_h">The next sync</h2><p class="sub" style="margin:0" data-i18n="pre_p">A scan on this computer: nothing is sent and ViaVeritas isn't asked.</p></div>
           <button class="btn btn-secondary btn-sm" id="preRefresh"><i data-icon="refresh"></i><span data-i18n="pre_rescan">Scan again</span></button></div>
         <div id="preScan" style="margin-top:14px"><span class="muted" data-i18n="pre_scanning">Scanning the folder…</span><div class="pbar"><div class="pbar-fill"></div></div><p class="hint" id="preCount"></p></div>
@@ -437,6 +446,69 @@
           <button class="btn btn-ghost" id="pairCancel" hidden data-i18n="cancel">Cancel</button>
           <button class="btn btn-primary" id="pairBtn" disabled><span class="sp"></span><span data-i18n="btn_pair">Pair</span></button>
         </div>
+      </div>
+    </section>
+
+    <!-- FEATURES -->
+    <section class="view" data-section="features" hidden>
+      <div class="head"><div><h1 data-i18n="fe_h">Features</h1><p data-i18n="fe_p">What this bridge does on this computer. Each runs only while it is on here and in ViaVeritas: switched off here, ViaVeritas can't turn it on.</p></div></div>
+
+      <div class="card card-pad">
+        <h2 data-i18n="fe_list">What it does</h2>
+        <p class="sub" data-i18n="fe_list_p">Your organization's admins can switch these off for this bridge in ViaVeritas too.</p>
+        <div id="feVersion" class="note" style="margin-bottom:14px" hidden><i data-icon="info"></i><span class="txt" id="feVersionText"></span></div>
+        <div class="folders" id="feList"></div>
+      </div>
+
+      <div class="card card-pad" id="upCard">
+        <h2 data-i18n="up_h">Updates</h2>
+        <p class="sub" data-i18n="up_p">A new version runs only once it checks out against ViaVeritas's signature. If it doesn't reach ViaVeritas within two minutes, the version before goes back in place.</p>
+        <div class="row" style="margin-bottom:14px"><span class="grow" data-i18n="up_s_ask">It updates only when someone asks, in ViaVeritas or here.</span></div>
+        <div class="row"><span class="grow muted" id="upState"></span>
+          <button type="button" class="btn btn-secondary btn-sm" id="upNow" hidden><span class="sp"></span><span class="lbl"></span></button>
+</div>
+      </div>
+
+      <div class="card card-pad" id="ssCard">
+        <h2 data-i18n="ss_h">Terminals and commands</h2>
+        <p class="sub" data-i18n="ss_p">What ViaVeritas opens on this computer, once Terminal is on above. It never keeps a password: it runs as who you choose here.</p>
+        <div class="grid2">
+          <div><label class="fld" id="ssRunAsLabel" data-i18n="ss_runas">They run as</label>
+            <div class="segmented" id="ssRunAs" role="group" aria-labelledby="ssRunAsLabel">
+              <button type="button" data-runas="user" aria-pressed="true" data-i18n="ss_user">The person signed in</button>
+              <button type="button" data-runas="system" aria-pressed="false" data-i18n="ss_system">The administrator</button>
+            </div>
+            <p class="muted" id="ssRunAsHint" style="margin:8px 0 0;font-size:13px"></p></div>
+          <div><label class="switch" style="margin-top:26px"><input type="checkbox" id="ssNotices"><span data-i18n="ss_notices">Say it on this computer's screen when one starts</span></label></div>
+        </div>
+      </div>
+
+      <div class="card card-pad" id="lgCard">
+        <h2 data-i18n="lg_h">Logs ViaVeritas may read</h2>
+        <p class="sub" data-i18n="lg_p">What ViaVeritas may read live, once Logs is on above: the bridge's own log, and what you add here. Nothing it reads is kept.</p>
+        <div class="folders" id="lgList"></div>
+        <div style="margin-top:14px"><label class="fld" id="lgKindLabel" data-i18n="lg_kind">Add</label>
+          <div class="segmented" id="lgKind" role="group" aria-labelledby="lgKindLabel"></div></div>
+        <div class="grid2" style="margin-top:14px">
+          <div><label class="fld" for="lgTarget" id="lgTargetLabel"></label>
+            <input type="text" id="lgTarget" autocomplete="off" spellcheck="false"><p class="hint" id="lgTargetHint"></p></div>
+          <div><label class="fld" for="lgName" data-i18n="lg_name">What it is (optional)</label>
+            <input type="text" id="lgName" autocomplete="off" maxlength="80"></div>
+        </div>
+        <div class="row" style="margin-top:14px"><span class="grow"></span>
+          <button type="button" class="btn btn-primary btn-sm" id="lgAdd"><span class="sp"></span><span data-i18n="lg_add">Share it</span></button></div>
+      </div>
+
+      <div class="card card-pad" id="fePauseCard" hidden>
+        <div class="row"><div class="grow"><h2 data-i18n="fe_pause_h">Remote access</h2><p class="sub" style="margin:0" data-i18n="fe_pause_p">Pausing ends what ViaVeritas has open on this computer and lets nothing new open, whatever the switches say, until you resume it.</p></div>
+          <label class="switch"><input type="checkbox" id="fePause"><span data-i18n="fe_pause">Pause all remote access</span></label></div>
+      </div>
+
+      <div class="card card-pad">
+        <div class="row"><div class="grow"><h2 data-i18n="fe_open_h">Open from ViaVeritas now</h2><p class="sub" style="margin:0" data-i18n="fe_open_p">What ViaVeritas has open on this computer, and who opened it. Ending one closes it at once.</p></div></div>
+        <div class="folders" id="feStreams"></div>
+        <p class="muted" id="feStreamsEmpty" style="margin-top:14px" data-i18n="fe_open_none">Nothing is open on this computer from ViaVeritas.</p>
+        <div id="feNotRunning" class="note" style="margin-top:14px" hidden><i data-icon="info"></i><span class="txt" data-i18n="fe_not_running">The service isn't running, so nothing is open. It runs once the bridge is installed.</span></div>
       </div>
     </section>
 
@@ -529,6 +601,16 @@ const ICONS={
   box:'<path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
   pencil:'<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/>',
   trash:'<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>',
+  toggle:'<rect width="20" height="12" x="2" y="6" rx="6" ry="6"/><circle cx="16" cy="12" r="2"/>',
+  scroll:'<path d="M15 12h-5"/><path d="M15 8h-5"/><path d="M19 17V5a2 2 0 0 0-2-2H4"/><path d="M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3"/>',
+  network:'<rect x="16" y="16" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="9" y="2" width="6" height="6" rx="1"/><path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3"/><path d="M12 12V8"/>',
+  activity:'<path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/>',
+  cpu:'<rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9" rx="1"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/>',
+  user:'<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  gauge:'<path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>',
+  download:'<path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/>',
+  play:'<polygon points="6 3 20 12 6 21 6 3"/>',
+  send:'<path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/>',
 };
 const icon=(n,cls='ic')=>'<svg class="'+cls+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(ICONS[n]||'')+'</svg>';
 function paintIcons(){ $$('i[data-icon]').forEach(e=>{ const tmp=document.createElement('span'); tmp.innerHTML=icon(e.dataset.icon,e.className?'ic '+e.className:'ic'); e.replaceWith(tmp.firstChild); }); }
@@ -538,12 +620,64 @@ const T={
   en:{
     title:"ViaVeritas Bridge", brand_sub:"Bridge",
     svc_running:"Running", svc_stopped:"Stopped", svc_not_installed:"Not installed", svc_unknown:"Unknown",
-    nav_overview:"Overview", nav_folder:"Folders", nav_connection:"Connection", nav_activity:"Activity", nav_settings:"Settings",
+    nav_overview:"Overview", nav_folder:"Folders", nav_connection:"Connection", nav_features:"Features", nav_activity:"Activity", nav_settings:"Settings",
     installed_in:"Installed in", version_v:"Version {v}",
     refresh:"Refresh", restart:"Restart", cancel:"Cancel", save:"Save",
-    ov_h:"Overview", ov_p:"This computer's folders, kept in sync with your organization's Files in ViaVeritas.",
-    guide_h:"Set up this bridge", guide_p:"Three steps, once. After that it runs by itself, even after the computer restarts.",
-    g1_t:"Choose the folders", g1_p:"The folders on this computer your team should reach from ViaVeritas: as many as you like, none inside another.", g1_b:"Choose",
+    ov_h:"Overview", ov_p:"This computer, connected to your organization in ViaVeritas.",
+    guide_h:"Set up this bridge", guide_p:"Two steps, once. After that it runs by itself, even after the computer restarts.",
+    g1_t:"Choose folders to sync", g1_p:"Only if your team should reach files on this computer from ViaVeritas: as many as you like, none inside another. You can add them any time.", g1_b:"Choose",
+    g_optional:"Optional",
+    fo_empty:"No folder is synced. Add one if your team should reach files on this computer from ViaVeritas; the bridge works without.",
+    files_off_here:"Files are switched off on this computer, so its folders don't sync and their files can't be opened from ViaVeritas. Features switches them on again.",
+    files_off_portal:"Files are switched off for this bridge in ViaVeritas, so its folders don't sync and their files can't be opened from there.",
+    t_files_nofolder:"No folder synced", t_files_off:"Switched off",
+    f_socket:"Socket", f_socket_on:"Connected {ago}", f_socket_off:"Not connected", f_socket_refused:"Refused: pair it again",
+    a_refused:"ViaVeritas refused this bridge's credentials: it was deleted there, or paired again elsewhere. Pair it again to reconnect.",
+    a_refused_b:"Pair again",
+    fe_h:"Features", fe_p:"What this bridge does on this computer. Each runs only while it is on here and in ViaVeritas: switched off here, ViaVeritas can't turn it on.",
+    fe_list:"What it does", fe_list_p:"Your organization's admins can switch these off for this bridge in ViaVeritas too.",
+    fe_here:"On this computer",
+    fe_pause_h:"Remote access", fe_pause_p:"Pausing ends what ViaVeritas has open on this computer and lets nothing new open, whatever the switches say, until you resume it.",
+    fe_pause:"Pause all remote access",
+    fe_open_h:"Open from ViaVeritas now", fe_open_p:"What ViaVeritas has open on this computer, and who opened it. Ending one closes it at once.",
+    fe_open_none:"Nothing is open on this computer from ViaVeritas.",
+    fe_not_running:"The service isn't running, so nothing is open. It runs once the bridge is installed.",
+    fe_confirm_remote:"Turn on {name}? Members of your organization with the permission will be able to use it on this computer from ViaVeritas, while ViaVeritas allows it too.",
+    fe_end:"End", fe_end_confirm:"End this {kind} now? It closes for whoever opened it.",
+    fs_runs:"Runs", fs_off_here:"Off on this computer", fs_off_portal:"Off in ViaVeritas", fs_paused:"Paused",
+    feat_files:"Files", feat_files_d:"Syncs the folders you choose to Files, and serves their files to your team on your network. Sends the names, sizes and dates of their files, never their contents.",
+    feat_inventory:"Inventory", feat_inventory_d:"Tells ViaVeritas what this computer is: its system and version, processor, memory, disks, network addresses, model and serial number. Sent when any of it changes.",
+    feat_inventory_personal:"Who uses it", feat_inventory_personal_d:"Adds the people signed in to this computer to its inventory, by their user name.",
+    feat_metrics:"Monitoring", feat_metrics_d:"Sends how busy this computer is every 30 seconds (processor, memory, disks, network and temperature), and every 2 seconds while someone watches; ViaVeritas keeps each with its time. Never what runs or what is in its files.",
+    feat_speedtest:"Speedtest", feat_speedtest_d:"Lets ViaVeritas measure the connection to it when someone asks: a few seconds of data down and up, at most 25 MB each way.",
+    up_h:"Updates", up_p:"A new version runs only once it checks out against ViaVeritas's signature. If it doesn't reach ViaVeritas within two minutes, the version before goes back in place.",
+    up_now:"Update to {v}", up_s_ask:"It updates only when someone asks, in ViaVeritas or here.",
+    up_avail:"{v} is out.", up_none:"No newer version is known.", up_busy:"Updating to {v}…", up_restarting:"{v} is in place and starting.", up_failed:"The update to {v} failed: {e}.",
+    up_not_running:"The service isn't running, so it can't update.",
+    toast_up_started:"Updating: the bridge starts again with the new version in a minute or two.",
+    kind_echo:"Connection test", kind_terminal:"Terminal", kind_exec:"Command",
+    feat_terminal:"Terminal", feat_terminal_d:"Lets ViaVeritas open a terminal on this computer (three at most, each ending after 15 minutes idle) and run commands on it (an hour each at most). What they show is kept in ViaVeritas; what is typed isn't.",
+    ss_h:"Terminals and commands", ss_p:"What ViaVeritas opens on this computer, once Terminal is on above. It never keeps a password: it runs as who you choose here.",
+    ss_runas:"They run as", ss_user:"The person signed in", ss_system:"The administrator", ss_notices:"Say it on this computer's screen when one starts",
+    ss_user_hint:"As whoever is signed in at this computer, with their rights. While nobody is, nothing opens.", ss_system_hint:"As root (SYSTEM on Windows): everything on this computer, whoever is signed in.",
+    ss_system_confirm:"Run what ViaVeritas opens as this computer's administrator? It can then change anything on it.",
+    feat_proxy:"Connections", feat_proxy_d:"Lets ViaVeritas reach anything this computer can: a web address, or a connection to a port, on its network or beyond. Switch it off to stop it.",
+    kind_http:"Web request", kind_tcp:"Connection",
+    feat_logs:"Logs", feat_logs_d:"Lets ViaVeritas read, live, the logs listed below: the bridge's own, and what you add. Nothing it reads is kept.",
+    kind_logs:"Log view", src_proxy:"Connections", src_logs:"Logs",
+    lg_h:"Logs ViaVeritas may read", lg_p:"What ViaVeritas may read live, once Logs is on above: the bridge's own log, and what you add here. Nothing it reads is kept.",
+    lg_kind:"Add", lg_name:"What it is (optional)", lg_add:"Share it", lg_remove:"Remove", lg_own:"Always shared while Logs is on",
+    lg_kinds_file:"A file", lg_kinds_journal:"The journal", lg_kinds_macos:"The system log", lg_kinds_eventlog:"An event log",
+    lg_t_file:"Path, or a pattern of them", lg_h_file:"The newest file a pattern matches is read: a log that rotates is followed.",
+    lg_t_journal:"Unit (optional)", lg_h_journal:"Empty: every unit's.",
+    lg_t_macos:"Predicate (optional)", lg_h_macos:"As `log stream --predicate` takes it. Empty: everything, which is a lot.",
+    lg_t_eventlog:"Event log", lg_h_eventlog:"System, Application, Security, or any other log's name.",
+    lg_everything:"everything", lg_remove_confirm:"Stop ViaVeritas reading {name}? A view of it open now ends.",
+    lg_off:"Logs are off above: nothing listed is read until they're on.",
+    toast_lg_added:"Shared", toast_lg_removed:"Removed",
+    st_by:"by {who}", st_since:"since {ago}", st_bytes:"{in} in, {out} out", st_someone:"ViaVeritas",
+    fe_version:"The service running here is {service}, another build than this dashboard ({own}): what you change here may not hold. Update it from Settings to run this one.",
+    toast_feature_on:"Switched on", toast_feature_off:"Switched off", toast_paused:"Remote access paused", toast_resumed:"Remote access resumed", toast_ended:"Ended",
     g2_t:"Install it", g2_p:"It installs into {dir} and starts with this computer. This download can go afterwards.", g2_b:"Install",
     g3_t:"Pair with ViaVeritas", g3_p:"In ViaVeritas, Bridges › Pair a bridge gives a code to enter here.", g3_b:"Pair",
     ov_figures:"Now", t_service:"Service", t_service_on:"Starts with this computer", t_service_off:"Not running: restart it",
@@ -656,17 +790,72 @@ const T={
     src_config:"Settings",
     src_files:"Downloads",
     src_pair:"Pairing",
+    src_streams:"Sessions",
+    src_control:"This computer",
+    src_monitoring:"Monitoring", src_remote:"Terminals and commands", src_selfupdate:"Updates", src_telemetry:"Telemetry",
     ago_now:"just now"
   },
   el:{
     title:"ViaVeritas Bridge", brand_sub:"Bridge",
     svc_running:"Σε λειτουργία", svc_stopped:"Σταματημένο", svc_not_installed:"Μη εγκατεστημένο", svc_unknown:"Άγνωστο",
-    nav_overview:"Επισκόπηση", nav_folder:"Φάκελοι", nav_connection:"Σύνδεση", nav_activity:"Δραστηριότητα", nav_settings:"Ρυθμίσεις",
+    nav_overview:"Επισκόπηση", nav_folder:"Φάκελοι", nav_connection:"Σύνδεση", nav_features:"Λειτουργίες", nav_activity:"Δραστηριότητα", nav_settings:"Ρυθμίσεις",
     installed_in:"Εγκατάσταση στο", version_v:"Έκδοση {v}",
     refresh:"Ανανέωση", restart:"Επανεκκίνηση", cancel:"Ακύρωση", save:"Αποθήκευση",
-    ov_h:"Επισκόπηση", ov_p:"Οι φάκελοι αυτού του υπολογιστή, συγχρονισμένοι με τα Αρχεία του οργανισμού σας στη ViaVeritas.",
-    guide_h:"Ρυθμίστε αυτό το bridge", guide_p:"Τρία βήματα, μία φορά. Μετά τρέχει μόνο του, ακόμη και μετά από επανεκκίνηση του υπολογιστή.",
-    g1_t:"Επιλέξτε τους φακέλους", g1_p:"Οι φάκελοι αυτού του υπολογιστή που η ομάδα σας θα βλέπει από τη ViaVeritas: όσοι θέλετε, κανένας μέσα σε άλλον.", g1_b:"Επιλογή",
+    ov_h:"Επισκόπηση", ov_p:"Αυτός ο υπολογιστής, συνδεδεμένος με τον οργανισμό σας στη ViaVeritas.",
+    guide_h:"Ρυθμίστε αυτό το bridge", guide_p:"Δύο βήματα, μία φορά. Μετά τρέχει μόνο του, ακόμη και μετά από επανεκκίνηση του υπολογιστή.",
+    g1_t:"Επιλέξτε φακέλους για συγχρονισμό", g1_p:"Μόνο αν η ομάδα σας θέλει να βλέπει αρχεία αυτού του υπολογιστή από τη ViaVeritas: όσους θέλετε, κανέναν μέσα σε άλλον. Μπορείτε να τους προσθέσετε όποτε θέλετε.", g1_b:"Επιλογή",
+    g_optional:"Προαιρετικό",
+    fo_empty:"Δεν συγχρονίζεται κανένας φάκελος. Προσθέστε έναν αν η ομάδα σας θέλει να βλέπει αρχεία αυτού του υπολογιστή από τη ViaVeritas· το bridge λειτουργεί και χωρίς.",
+    files_off_here:"Τα Αρχεία είναι απενεργοποιημένα σε αυτόν τον υπολογιστή, οπότε οι φάκελοί του δεν συγχρονίζονται και τα αρχεία τους δεν ανοίγουν από τη ViaVeritas. Τα ενεργοποιείτε ξανά από τις Λειτουργίες.",
+    files_off_portal:"Τα Αρχεία είναι απενεργοποιημένα για αυτό το bridge στη ViaVeritas, οπότε οι φάκελοί του δεν συγχρονίζονται και τα αρχεία τους δεν ανοίγουν από εκεί.",
+    t_files_nofolder:"Κανένας φάκελος", t_files_off:"Απενεργοποιημένα",
+    f_socket:"Socket", f_socket_on:"Συνδεδεμένο {ago}", f_socket_off:"Μη συνδεδεμένο", f_socket_refused:"Απορρίφθηκε: συνδέστε το ξανά",
+    a_refused:"Η ViaVeritas απέρριψε τα διαπιστευτήρια αυτού του bridge: διαγράφηκε εκεί ή συνδέθηκε ξανά αλλού. Συνδέστε το ξανά για να επανασυνδεθεί.",
+    a_refused_b:"Νέα σύνδεση",
+    fe_h:"Λειτουργίες", fe_p:"Τι κάνει αυτό το bridge σε αυτόν τον υπολογιστή. Η καθεμία τρέχει μόνο όσο είναι ενεργή εδώ και στη ViaVeritas: απενεργοποιημένη εδώ, η ViaVeritas δεν μπορεί να την ενεργοποιήσει.",
+    fe_list:"Τι κάνει", fe_list_p:"Οι διαχειριστές του οργανισμού σας μπορούν επίσης να τις απενεργοποιήσουν για αυτό το bridge στη ViaVeritas.",
+    fe_here:"Σε αυτόν τον υπολογιστή",
+    fe_pause_h:"Απομακρυσμένη πρόσβαση", fe_pause_p:"Η παύση κλείνει ό,τι έχει ανοιχτό η ViaVeritas σε αυτόν τον υπολογιστή και δεν αφήνει τίποτα νέο να ανοίξει, ό,τι κι αν λένε οι διακόπτες, μέχρι να τη συνεχίσετε.",
+    fe_pause:"Παύση κάθε απομακρυσμένης πρόσβασης",
+    fe_open_h:"Ανοιχτά από τη ViaVeritas τώρα", fe_open_p:"Τι έχει ανοιχτό η ViaVeritas σε αυτόν τον υπολογιστή, και ποιος το άνοιξε. Ο τερματισμός το κλείνει αμέσως.",
+    fe_open_none:"Δεν υπάρχει τίποτα ανοιχτό σε αυτόν τον υπολογιστή από τη ViaVeritas.",
+    fe_not_running:"Η υπηρεσία δεν τρέχει, οπότε δεν υπάρχει τίποτα ανοιχτό. Τρέχει μόλις εγκατασταθεί το bridge.",
+    fe_confirm_remote:"Ενεργοποίηση: {name}; Τα μέλη του οργανισμού σας με το δικαίωμα θα μπορούν να το χρησιμοποιούν σε αυτόν τον υπολογιστή από τη ViaVeritas, όσο το επιτρέπει και η ViaVeritas.",
+    fe_end:"Τερματισμός", fe_end_confirm:"Τερματισμός: {kind}; Κλείνει για όποιον το άνοιξε.",
+    fs_runs:"Τρέχει", fs_off_here:"Απενεργοποιημένη εδώ", fs_off_portal:"Απενεργοποιημένη στη ViaVeritas", fs_paused:"Σε παύση",
+    feat_files:"Αρχεία", feat_files_d:"Συγχρονίζει τους φακέλους που επιλέγετε στα Αρχεία και δίνει τα αρχεία τους στην ομάδα σας στο δίκτυό σας. Στέλνει ονόματα, μεγέθη και ημερομηνίες των αρχείων τους, ποτέ το περιεχόμενό τους.",
+    feat_inventory:"Απογραφή", feat_inventory_d:"Λέει στη ViaVeritas τι είναι αυτός ο υπολογιστής: το σύστημα και την έκδοσή του, τον επεξεργαστή, τη μνήμη, τους δίσκους, τις διευθύνσεις δικτύου, το μοντέλο και τον σειριακό αριθμό. Στέλνεται όταν αλλάζει κάτι.",
+    feat_inventory_personal:"Ποιοι τον χρησιμοποιούν", feat_inventory_personal_d:"Προσθέτει στην απογραφή τα άτομα που έχουν συνδεθεί σε αυτόν τον υπολογιστή, με το όνομα χρήστη τους.",
+    feat_metrics:"Παρακολούθηση", feat_metrics_d:"Στέλνει πόσο απασχολημένος είναι αυτός ο υπολογιστής κάθε 30 δευτερόλεπτα (επεξεργαστής, μνήμη, δίσκοι, δίκτυο και θερμοκρασία), και κάθε 2 δευτερόλεπτα όσο κάποιος παρακολουθεί· η ViaVeritas κρατά την καθεμία με την ώρα της. Ποτέ τι τρέχει ή τι περιέχουν τα αρχεία του.",
+    feat_speedtest:"Μέτρηση ταχύτητας", feat_speedtest_d:"Επιτρέπει στη ViaVeritas να μετρά τη σύνδεση μαζί της όταν το ζητήσει κάποιος: λίγα δευτερόλεπτα δεδομένων προς τα κάτω και προς τα πάνω, έως 25 MB προς κάθε κατεύθυνση.",
+    up_h:"Ενημερώσεις", up_p:"Μια νέα έκδοση τρέχει μόνο αφού ελεγχθεί με την υπογραφή της ViaVeritas. Αν δεν συνδεθεί με τη ViaVeritas μέσα σε δύο λεπτά, επιστρέφει η προηγούμενη έκδοση.",
+    up_now:"Ενημέρωση σε {v}", up_s_ask:"Ενημερώνεται μόνο όταν το ζητήσει κάποιος, στη ViaVeritas ή εδώ.",
+    up_avail:"Κυκλοφόρησε η {v}.", up_none:"Δεν υπάρχει γνωστή νεότερη έκδοση.", up_busy:"Ενημέρωση σε {v}…", up_restarting:"Η {v} μπήκε στη θέση της και ξεκινά.", up_failed:"Η ενημέρωση σε {v} απέτυχε: {e}.",
+    up_not_running:"Η υπηρεσία δεν τρέχει, οπότε δεν μπορεί να ενημερωθεί.",
+    toast_up_started:"Ενημέρωση: το bridge ξεκινά ξανά με τη νέα έκδοση σε ένα με δύο λεπτά.",
+    kind_echo:"Δοκιμή σύνδεσης", kind_terminal:"Τερματικό", kind_exec:"Εντολή",
+    feat_terminal:"Τερματικό", feat_terminal_d:"Επιτρέπει στη ViaVeritas να ανοίγει τερματικό σε αυτόν τον υπολογιστή (έως τρία, το καθένα κλείνει μετά από 15 λεπτά αδράνειας) και να εκτελεί εντολές σε αυτόν (μία ώρα η καθεμία το πολύ). Ό,τι δείχνουν κρατιέται στη ViaVeritas· ό,τι πληκτρολογείται όχι.",
+    ss_h:"Τερματικά και εντολές", ss_p:"Ό,τι ανοίγει η ViaVeritas σε αυτόν τον υπολογιστή, όταν το Τερματικό είναι ενεργό παραπάνω. Δεν κρατά ποτέ κωδικό: τρέχει ως όποιον επιλέξετε εδώ.",
+    ss_runas:"Τρέχουν ως", ss_user:"Το άτομο που έχει συνδεθεί", ss_system:"Ο διαχειριστής", ss_notices:"Να το λέει στην οθόνη αυτού του υπολογιστή όταν ξεκινά",
+    ss_user_hint:"Ως όποιον έχει συνδεθεί σε αυτόν τον υπολογιστή, με τα δικαιώματά του. Όσο δεν έχει συνδεθεί κανείς, δεν ανοίγει τίποτα.", ss_system_hint:"Ως root (SYSTEM στα Windows): τα πάντα σε αυτόν τον υπολογιστή, όποιος κι αν έχει συνδεθεί.",
+    ss_system_confirm:"Να τρέχει ό,τι ανοίγει η ViaVeritas ως διαχειριστής αυτού του υπολογιστή; Θα μπορεί τότε να αλλάξει τα πάντα σε αυτόν.",
+    feat_proxy:"Συνδέσεις", feat_proxy_d:"Επιτρέπει στη ViaVeritas να φτάνει σε οτιδήποτε φτάνει αυτός ο υπολογιστής: μια διεύθυνση web ή μια σύνδεση σε θύρα, στο δίκτυό του ή πέρα από αυτό. Απενεργοποιήστε το για να σταματήσει.",
+    kind_http:"Αίτημα web", kind_tcp:"Σύνδεση",
+    feat_logs:"Καταγραφές", feat_logs_d:"Επιτρέπει στη ViaVeritas να διαβάζει ζωντανά τις καταγραφές της λίστας παρακάτω: του ίδιου του bridge, και όσες προσθέσετε. Τίποτα από όσα διαβάζει δεν κρατιέται.",
+    kind_logs:"Προβολή καταγραφής", src_proxy:"Συνδέσεις", src_logs:"Καταγραφές",
+    lg_h:"Καταγραφές που μπορεί να διαβάσει η ViaVeritas", lg_p:"Τι μπορεί να διαβάσει ζωντανά η ViaVeritas, όταν οι Καταγραφές είναι ενεργές παραπάνω: την καταγραφή του ίδιου του bridge, και όσες προσθέσετε εδώ. Τίποτα από όσα διαβάζει δεν κρατιέται.",
+    lg_kind:"Προσθήκη", lg_name:"Τι είναι (προαιρετικό)", lg_add:"Κοινοποίηση", lg_remove:"Αφαίρεση", lg_own:"Κοινοποιείται πάντα όσο οι Καταγραφές είναι ενεργές",
+    lg_kinds_file:"Ένα αρχείο", lg_kinds_journal:"Το journal", lg_kinds_macos:"Η καταγραφή συστήματος", lg_kinds_eventlog:"Μια καταγραφή συμβάντων",
+    lg_t_file:"Διαδρομή, ή μοτίβο διαδρομών", lg_h_file:"Διαβάζεται το νεότερο αρχείο που ταιριάζει στο μοτίβο: μια καταγραφή που εναλλάσσεται ακολουθείται.",
+    lg_t_journal:"Μονάδα (προαιρετικό)", lg_h_journal:"Κενό: όλων των μονάδων.",
+    lg_t_macos:"Κατηγόρημα (προαιρετικό)", lg_h_macos:"Όπως το δέχεται το `log stream --predicate`. Κενό: τα πάντα, που είναι πολλά.",
+    lg_t_eventlog:"Καταγραφή συμβάντων", lg_h_eventlog:"System, Application, Security, ή το όνομα οποιασδήποτε άλλης καταγραφής.",
+    lg_everything:"τα πάντα", lg_remove_confirm:"Να μη διαβάζει πια η ViaVeritas το {name}; Μια προβολή του που είναι ανοιχτή τώρα κλείνει.",
+    lg_off:"Οι Καταγραφές είναι απενεργοποιημένες παραπάνω: τίποτα από τη λίστα δεν διαβάζεται μέχρι να ενεργοποιηθούν.",
+    toast_lg_added:"Κοινοποιήθηκε", toast_lg_removed:"Αφαιρέθηκε",
+    st_by:"από {who}", st_since:"από {ago}", st_bytes:"{in} εισερχόμενα, {out} εξερχόμενα", st_someone:"ViaVeritas",
+    fe_version:"Η υπηρεσία που τρέχει εδώ είναι η {service}, άλλη έκδοση από αυτόν τον πίνακα ({own}): ό,τι αλλάζετε εδώ μπορεί να μη μείνει. Ενημερώστε την από τις Ρυθμίσεις για να τρέχει αυτή.",
+    toast_feature_on:"Ενεργοποιήθηκε", toast_feature_off:"Απενεργοποιήθηκε", toast_paused:"Η απομακρυσμένη πρόσβαση είναι σε παύση", toast_resumed:"Η απομακρυσμένη πρόσβαση συνεχίζεται", toast_ended:"Τερματίστηκε",
     g2_t:"Εγκαταστήστε το", g2_p:"Εγκαθίσταται στο {dir} και ξεκινά με τον υπολογιστή. Η λήψη μπορεί να διαγραφεί μετά.", g2_b:"Εγκατάσταση",
     g3_t:"Συνδέστε το με τη ViaVeritas", g3_p:"Στη ViaVeritas, Bridges › Σύνδεση bridge δίνει έναν κωδικό που γράφετε εδώ.", g3_b:"Σύνδεση",
     ov_figures:"Τώρα", t_service:"Υπηρεσία", t_service_on:"Ξεκινά με τον υπολογιστή", t_service_off:"Δεν τρέχει: επανεκκινήστε το",
@@ -779,6 +968,9 @@ const T={
     src_config:"Ρυθμίσεις",
     src_files:"Λήψεις",
     src_pair:"Σύνδεση κωδικού",
+    src_streams:"Συνεδρίες",
+    src_control:"Αυτός ο υπολογιστής",
+    src_monitoring:"Παρακολούθηση", src_remote:"Τερματικά και εντολές", src_selfupdate:"Ενημερώσεις", src_telemetry:"Τηλεμετρία",
     ago_now:"μόλις τώρα"
   }
 };
@@ -818,14 +1010,15 @@ function toast(msg,bad){
 }
 
 /* ---------- views ---------- */
-const VIEWS=['overview','folder','connection','activity','settings'];
+const VIEWS=['overview','folder','connection','features','activity','settings'];
 function setView(v,push){
   if(!VIEWS.includes(v))v='overview';
   VIEW=v;
   $$('[data-section]').forEach(s=>s.hidden=s.dataset.section!==v);
   $$('#nav button').forEach(b=>{ if(b.dataset.view===v)b.setAttribute('aria-current','page'); else b.removeAttribute('aria-current'); });
   if(push)history.pushState(null,'','#'+v); else history.replaceState(null,'','#'+v);
-  if(v==='folder'){ if(!folders().length)openBrowser(); loadPreview(); }
+  if(v==='folder')loadPreview();
+  if(v==='features')loadRemote();
   if(v==='activity'){ LOG.stick=true; renderLogs(); scrollLogEnd(); }
   window.scrollTo({top:0});
 }
@@ -852,19 +1045,21 @@ function renderTop(){
   $('#footVersion').textContent=t('version_v',{v:S.version||''});
   $('#footDir').textContent=S.installDir||'';
   $('#badgeFolder').hidden=!folders().some(f=>f.protected||!f.available);
-  $('#badgeConnection').hidden=!(S.paired&&!S.socketReady);
+  $('#badgeConnection').hidden=!(S.paired&&(!S.socketReady||(S.socket&&S.socket.refused)));
+  $('#badgeFeatures').hidden=S.filesOn!==false||!folders().length;
   $('#badgeActivity').hidden=!LOG.problems;
 }
 
 function renderOverview(){
+  // Install and pair are the setup; folders are for those who want Files, so they don't hold the guide open.
   const folderDone=folders().length>0, installDone=installed(), pairDone=!!S.paired;
-  $('#guide').hidden=folderDone&&installDone&&pairDone;
-  const steps=[['#gFolder',folderDone],['#gInstall',installDone],['#gPair',pairDone]];
+  $('#guide').hidden=installDone&&pairDone;
+  const steps=[['#gInstall',installDone],['#gPair',pairDone],['#gFolder',folderDone]];
   const next=steps.findIndex(s=>!s[1]);
   steps.forEach(([id,done],i)=>{
     const el=$(id); el.classList.toggle('done',done); el.classList.toggle('next',i===next);
     el.querySelector('.num').innerHTML=done?icon('check'):String(i+1);
-    const b=el.querySelector('.btn'); b.disabled=done||(i===1&&!folderDone)||(i===2&&!installDone);
+    const b=el.querySelector('.btn'); b.disabled=done||(i===1&&!installDone);
     b.classList.toggle('btn-primary',i===next); b.classList.toggle('btn-secondary',i!==next);
   });
   fill($('#g2p'),'g2_p',{dir:S.installDir||''});
@@ -889,13 +1084,16 @@ function renderOverview(){
   if(S.newerInstalled) add('','a_older',v);
   if(prot.length) add('warn','a_protected',v);
   if(away.length) add('warn','a_away',v,{label:t('a_away_b'),go:'folder'});
-  if(S.paired&&!S.socketReady) add('warn','a_socket',v,{label:t('a_socket_b'),go:'connection'});
+  if(S.paired&&S.socket&&S.socket.refused) add('err','a_refused',v,{label:t('a_refused_b'),go:'connection'});
+  else if(S.paired&&!S.socketReady) add('warn','a_socket',v,{label:t('a_socket_b'),go:'connection'});
   if(S.paired&&S.service==='running'&&!S.lastHeartbeatAt) add('','a_nocontact',v,{label:t('a_nocontact_b'),go:'activity'});
 
   // Now, two rows of three.
   const tiles=[
     [t('t_service'),serviceLabel(),S.service==='running'?t('t_service_on'):installDone?t('t_service_off'):'',S.service==='stopped'],
-    [t('t_files'),S.indexed!=null?nf(S.indexed):'—',S.indexedAt?t('t_files_at',{ago:ago(S.indexedAt)}):t('t_files_none')],
+    !folders().length?[t('t_files'),'—',t('t_files_nofolder')]
+      :S.filesOn===false?[t('t_files'),S.indexed!=null?nf(S.indexed):'—',t('t_files_off')]
+      :[t('t_files'),S.indexed!=null?nf(S.indexed):'—',S.indexedAt?t('t_files_at',{ago:ago(S.indexedAt)}):t('t_files_none')],
     [t('t_contact'),S.lastHeartbeatAt?ago(S.lastHeartbeatAt):t('t_contact_none'),S.apiBaseUrl?S.apiBaseUrl.replace(/^https?:\/\//,''):''],
     [t('t_free'),S.freeBytes!=null?bytes(S.freeBytes):'—',folders().length===1?folders()[0].path:folders().length?t('t_free_least',{n:nf(folders().length)}):''],
     [t('t_version'),S.version||'—',S.updateAvailable||S.newerInstalled?t('t_version_newer',{v:S.installedVersion}):(S.installDir||'')],
@@ -935,6 +1133,11 @@ document.addEventListener('click',async e=>{
 let pickedPath='';
 function renderFolders(){
   const list=$('#foList'); list.innerHTML='';
+  $('#foEmpty').hidden=folders().length>0||!$('#browserBox').hidden;
+  $('#preCard').hidden=!folders().length;
+  const off=folders().length&&S.filesOn===false;
+  $('#filesOff').hidden=!off;
+  if(off)$('#filesOffText').textContent=t(S.filesHere===false?'files_off_here':'files_off_portal');
   folders().forEach(f=>{
     const row=document.createElement('div'); row.className='fitem';
     row.innerHTML=icon('folder')+'<div class="main-col"><b></b><code></code><div class="meta"></div></div>';
@@ -964,9 +1167,9 @@ function removeFolder(f){
   if(!confirm(t('fo_remove_confirm',{name:f.name})))return;
   folderAction('/api/folders/remove',{name:f.name},'toast_removed');
 }
-function openBrowser(){ $('#browserBox').hidden=false; $('#foName').value=''; browse(pickedPath||S.suggestedRoot||''); }
+function openBrowser(){ $('#browserBox').hidden=false; $('#foEmpty').hidden=true; $('#foName').value=''; browse(pickedPath||S.suggestedRoot||''); }
 $('#foAdd').onclick=()=>openBrowser();
-$('#foCancel').onclick=()=>{ $('#browserBox').hidden=true; };
+$('#foCancel').onclick=()=>{ $('#browserBox').hidden=true; renderFolders(); };
 async function browse(path){
   const flist=$('#flist'),crumbs=$('#crumbs');
   flist.innerHTML='<div class="fempty">…</div>';
@@ -1060,7 +1263,11 @@ function renderConnection(){
   if(S.mdnsUrl)row(t('f_mdns'),link(S.mdnsUrl));
   row(t('f_tls'),S.tlsUrl?link(S.tlsUrl):t('t_secure_plain'));
   row(t('f_contact'),S.lastHeartbeatAt?ago(S.lastHeartbeatAt):t('t_contact_none'));
-  row(t('f_changes'),S.socketReady?t('f_changes_on'):t('f_changes_off'));
+  // The running service's word on its socket; without one, whether it could hold one.
+  if(S.socket){
+    const sk=S.socket, dd=row(t('f_socket'),sk.connected?t('f_socket_on',{ago:ago(sk.since)}):sk.refused?t('f_socket_refused'):t('f_socket_off'));
+    if(!sk.connected&&sk.error){ dd.title=sk.error; if(sk.refused)dd.style.color='var(--destructive)'; }
+  }else row(t('f_changes'),S.socketReady?t('f_changes_on'):t('f_changes_off'));
 }
 $('#rePair').onclick=()=>{ rePairing=true; renderConnection(); $('#code').value=''; $('#pairBtn').disabled=true; $('#code').focus(); };
 $('#pairCancel').onclick=()=>{ rePairing=false; renderConnection(); };
@@ -1071,6 +1278,147 @@ $('#pairBtn').onclick=async()=>{
   const apiUrl=$('#apiUrl').value.trim()||$('#apiUrl').placeholder;
   const ok=await run($('#pairBtn'),'/api/pair',{code:codeEl.value.trim(),apiUrl},'toast_paired');
   if(ok){ rePairing=false; renderConnection(); }
+};
+
+/* ---------- features: what it does, its switches here, and what ViaVeritas has open ---------- */
+// What this version can do with each switch, and the running service's streams (read every few seconds
+// while the view shows). A feature runs while it is on here, on in ViaVeritas, and not paused.
+let R=null;
+const FEATURE_ICONS={logs:'scroll',proxy:'network',files:'folder',inventory:'cpu',inventory_personal:'user',metrics:'activity',speedtest:'gauge',terminal:'terminal'};
+const KINDS={echo:'kind_echo',terminal:'kind_terminal',exec:'kind_exec',http:'kind_http',tcp:'kind_tcp',logs:'kind_logs'};
+const featureName=k=>t('feat_'+k);
+async function loadRemote(){
+  try{ R=await api('/api/remote'); }catch(e){ return; }
+  renderFeatures();
+}
+function featureState(f){ return !f.here?'fs_off_here':f.paused?'fs_paused':!f.portal?'fs_off_portal':'fs_runs'; }
+function renderFeatures(){
+  if(!R)return;
+  // A service of another build rewrites the settings it knows as it knows them.
+  const other=R.running&&R.serviceVersion&&R.serviceVersion!==R.version;
+  $('#feVersion').hidden=!other;
+  if(other)$('#feVersionText').textContent=t('fe_version',{service:R.serviceVersion,own:R.version});
+  const list=$('#feList'); list.innerHTML='';
+  R.features.forEach(f=>{
+    const row=document.createElement('div'); row.className='fitem';
+    row.innerHTML=icon(FEATURE_ICONS[f.key]||'box')+'<div class="main-col"><b></b><p></p><div class="meta"></div></div>';
+    row.querySelector('b').textContent=featureName(f.key);
+    row.querySelector('p').textContent=t('feat_'+f.key+'_d');
+    const st=document.createElement('span'); st.className='flag'; st.textContent=t(featureState(f)); row.querySelector('.meta').appendChild(st);
+    const sw=document.createElement('label'); sw.className='switch';
+    sw.innerHTML='<input type="checkbox"><span></span>'; sw.querySelector('span').textContent=t('fe_here');
+    const input=sw.querySelector('input'); input.checked=f.here;
+    input.onchange=async()=>{
+      const on=input.checked;
+      if(on&&f.remote&&!confirm(t('fe_confirm_remote',{name:featureName(f.key)}))){ input.checked=false; return; }
+      input.disabled=true;
+      try{ await api('/api/features',{key:f.key,on}); toast(t(on?'toast_feature_on':'toast_feature_off')); }
+      catch(e){ input.checked=!on; toast(e.message||String(e),true); }
+      finally{ input.disabled=false; await loadRemote(); refresh(); pollLogs(); }
+    };
+    row.appendChild(sw); list.appendChild(row);
+  });
+
+  renderUpdates();
+  renderSessions();
+  renderLogSources();
+  $('#fePauseCard').hidden=!R.anyRemote;
+  $('#fePause').checked=!!R.paused;
+
+  const box=$('#feStreams'), open=R.streams||[];
+  box.innerHTML='';
+  $('#feNotRunning').hidden=!!R.running;
+  $('#feStreamsEmpty').hidden=!R.running||open.length>0;
+  open.forEach(s=>{
+    const row=document.createElement('div'); row.className='fitem';
+    row.innerHTML=icon({terminal:'terminal',exec:'play',http:'network',tcp:'network',logs:'scroll'}[s.kind]||'activity')+'<div class="main-col"><b></b><div class="meta"></div></div>';
+    const kind=KINDS[s.kind]?t(KINDS[s.kind]):s.kind;
+    row.querySelector('b').textContent=kind;
+    const meta=row.querySelector('.meta'), put=x=>{ const e=document.createElement('span'); e.textContent=x; meta.appendChild(e); };
+    const u=s.user||{}, who=u.name&&u.email?u.name+' <'+u.email+'>':(u.email||u.name||t('st_someone'));
+    put(t('st_by',{who})); put(t('st_since',{ago:ago(s.opened_at)})); put(t('st_bytes',{in:bytes(s.bytes_in),out:bytes(s.bytes_out)}));
+    const end=document.createElement('button'); end.type='button'; end.className='btn btn-danger-outline btn-sm';
+    end.innerHTML='<span class="sp"></span><span></span>'; end.lastChild.textContent=t('fe_end');
+    end.onclick=async()=>{ if(!confirm(t('fe_end_confirm',{kind})))return; if(await run(end,'/api/sessions/end',{id:s.id},'toast_ended'))loadRemote(); };
+    row.appendChild(end); box.appendChild(row);
+  });
+}
+// Updates: only when someone asks. How the update in progress or the last one that failed stands, and
+// Update now while ViaVeritas offers a newer version.
+function renderUpdates(){
+  const u=R.updates; if(!u)return;
+  const s=u.status||null, parts=[];
+  if(!R.running) parts.push(t('up_not_running'));
+  else if(s&&(s.phase==='downloading'||s.phase==='installing')) parts.push(t('up_busy',{v:s.to}));
+  else if(s&&s.phase==='restarting') parts.push(t('up_restarting',{v:s.to}));
+  else {
+    if(s&&s.phase==='failed') parts.push(t('up_failed',{v:s.to,e:s.error||''}));
+    parts.push(s&&s.available?t('up_avail',{v:s.available}):t('up_none'));
+  }
+  $('#upState').textContent=parts.join(' ');
+  const now=$('#upNow'), avail=R.running&&s&&s.available&&!['downloading','installing','restarting'].includes(s.phase);
+  now.hidden=!avail; if(avail) now.querySelector('.lbl').textContent=t('up_now',{v:s.available});
+}
+$('#upNow').onclick=async()=>{ if(await run($('#upNow'),'/api/updates/now',{},'toast_up_started'))loadRemote(); };
+
+// Who terminals and commands run as, and whether the screen says when one starts.
+function renderSessions(){
+  const s=R.sessions; if(!s)return;
+  $$('#ssRunAs button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.runas===s.runAs)));
+  $('#ssRunAsHint').textContent=t(s.runAs==='system'?'ss_system_hint':'ss_user_hint');
+  $('#ssNotices').checked=!!s.notices;
+}
+$$('#ssRunAs button').forEach(b=>b.onclick=async()=>{
+  const runAs=b.dataset.runas; if(!R||!R.sessions||R.sessions.runAs===runAs)return;
+  if(runAs==='system'&&!confirm(t('ss_system_confirm')))return;
+  try{ await api('/api/sessions/run-as',{runAs}); toast(t('toast_saved')); }
+  catch(e){ toast(e.message||String(e),true); }
+  finally{ await loadRemote(); pollLogs(); }
+});
+$('#ssNotices').onchange=async()=>{
+  const el=$('#ssNotices'), on=el.checked; el.disabled=true;
+  try{ await api('/api/sessions/notices',{on}); toast(t('toast_saved')); }
+  catch(e){ el.checked=!on; toast(e.message||String(e),true); }
+  finally{ el.disabled=false; await loadRemote(); pollLogs(); }
+};
+
+// The logs ViaVeritas may read: the bridge's own always, and what is added here.
+let lgKind=null;
+const LG_PLACEHOLDERS={file:'/var/log/nginx/*.log',journal:'nginx.service',macos:'subsystem == "com.example.app"',eventlog:'System'};
+function renderLogSources(){
+  const l=R.logSources; if(!l)return;
+  const kinds=l.kinds||['file'];
+  if(!lgKind||!kinds.includes(lgKind))lgKind=kinds[0];
+  const seg=$('#lgKind'); seg.innerHTML='';
+  kinds.forEach(k=>{ const b=document.createElement('button'); b.type='button'; b.textContent=t('lg_kinds_'+k); b.setAttribute('aria-pressed',String(k===lgKind)); b.onclick=()=>{ lgKind=k; renderLogSources(); }; seg.appendChild(b); });
+  $('#lgTargetLabel').textContent=t('lg_t_'+lgKind);
+  $('#lgTargetHint').textContent=t('lg_h_'+lgKind);
+  $('#lgTarget').placeholder=lgKind==='file'&&l.windows?'C:\\logs\\app.log':LG_PLACEHOLDERS[lgKind]||'';
+  const box=$('#lgList'); box.innerHTML='';
+  (l.sources||[]).forEach(x=>{
+    const row=document.createElement('div'); row.className='fitem';
+    row.innerHTML=icon('scroll')+'<div class="main-col"><b></b><div class="meta"></div></div>';
+    row.querySelector('b').textContent=x.name;
+    const meta=row.querySelector('.meta'), put=v=>{ const e=document.createElement('span'); e.textContent=v; meta.appendChild(e); };
+    put(x.kind==='bridge'?l.bridgeLog:(x.target||t('lg_everything')));
+    if(x.kind==='bridge'){ const e=document.createElement('span'); e.className='flag'; e.textContent=t('lg_own'); meta.appendChild(e); box.appendChild(row); return; }
+    const rm=document.createElement('button'); rm.type='button'; rm.className='btn btn-danger-outline btn-sm';
+    rm.innerHTML='<span class="sp"></span><span></span>'; rm.lastChild.textContent=t('lg_remove');
+    rm.onclick=async()=>{ if(!confirm(t('lg_remove_confirm',{name:x.name})))return; if(await run(rm,'/api/logs/remove',{id:x.id},'toast_lg_removed'))loadRemote(); };
+    row.appendChild(rm); box.appendChild(row);
+  });
+  if(!l.here){ const n=document.createElement('p'); n.className='muted'; n.style.margin='14px 0 0'; n.textContent=t('lg_off'); box.appendChild(n); }
+}
+$('#lgAdd').onclick=async()=>{
+  const ok=await run($('#lgAdd'),'/api/logs/add',{kind:lgKind,target:$('#lgTarget').value.trim(),name:$('#lgName').value.trim()},'toast_lg_added');
+  if(ok){ $('#lgTarget').value=''; $('#lgName').value=''; loadRemote(); }
+};
+
+$('#fePause').onchange=async()=>{
+  const el=$('#fePause'), paused=el.checked; el.disabled=true;
+  try{ await api('/api/pause',{paused}); toast(t(paused?'toast_paused':'toast_resumed')); }
+  catch(e){ el.checked=!paused; toast(e.message||String(e),true); }
+  finally{ el.disabled=false; await loadRemote(); pollLogs(); }
 };
 
 /* ---------- settings ---------- */
@@ -1122,7 +1470,7 @@ const LEVELS=[
 ];
 const LEVEL_ICON=Object.fromEntries(LEVELS.map(it=>[it.value,it.icon]));
 // The bridge's parts by the names people know them by; another shows as it is written.
-const SOURCES={setup:'src_setup',bridge:'src_bridge',watch:'src_watch',sync:'src_sync',heartbeat:'src_heartbeat',apisocket:'src_apisocket',commands:'src_commands',bridgesrv:'src_bridgesrv',config:'src_config',files:'src_files',pair:'src_pair'};
+const SOURCES={setup:'src_setup',bridge:'src_bridge',watch:'src_watch',sync:'src_sync',heartbeat:'src_heartbeat',apisocket:'src_apisocket',commands:'src_commands',bridgesrv:'src_bridgesrv',config:'src_config',files:'src_files',pair:'src_pair',streams:'src_streams',control:'src_control',monitoring:'src_monitoring',remote:'src_remote',selfupdate:'src_selfupdate',telemetry:'src_telemetry',proxy:'src_proxy',logs:'src_logs'};
 const sourceName=src=>SOURCES[src]?t(SOURCES[src]):src;
 
 function addText(text,reset){
@@ -1298,7 +1646,7 @@ function applyLang(){
   $$('[data-i18n-ph]').forEach(e=>{ e.placeholder=t(e.dataset.i18nPh); });
   $$('[data-i18n-aria]').forEach(e=>{ e.setAttribute('aria-label',t(e.dataset.i18nAria)); });
   renderLangMenu();
-  render(); renderLogs();
+  render(); renderLogs(); renderFeatures();
 }
 
 /* keep-alive: the local setup server stops itself when this page closes (the beacon,
@@ -1309,7 +1657,8 @@ addEventListener('pagehide',()=>{ try{ navigator.sendBeacon('/api/bye'); }catch(
 // Local reads, so cheap: the figures every 10 s, the log every 2 s, while the page shows.
 setInterval(()=>{ if(!document.hidden)refresh(); },10000);
 setInterval(()=>{ if(!document.hidden)pollLogs(); },2000);
-document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ refresh(); pollLogs(); } });
+setInterval(()=>{ if(!document.hidden&&VIEW==='features')loadRemote(); },3000);
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ refresh(); pollLogs(); if(VIEW==='features')loadRemote(); } });
 
 /* ---------- boot ---------- */
 (async function init(){

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"bridge/internal/config"
+	"bridge/internal/control"
 	"bridge/internal/pair"
 	"bridge/internal/platform"
 	"bridge/internal/watch"
@@ -89,6 +90,12 @@ func (s *srv) handleStatus(w http.ResponseWriter, r *http.Request) {
 		"signingKey":      cfg.SigningKey != "",
 		"logFile":         cfg.LogFile(),
 		"os":              runtime.GOOS,
+		"filesOn":         cfg.Effective(config.FeatureFiles),
+		"filesHere":       cfg.Allows(config.FeatureFiles),
+	}
+	// The running service's own word on its socket, when it answers.
+	if st, err := control.Ask(); err == nil {
+		resp["socket"], resp["openStreams"] = st.Socket, len(st.Streams)
 	}
 	n, at, perFolder, indexed := s.index.read()
 	if indexed {

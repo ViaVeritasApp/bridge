@@ -51,6 +51,9 @@ func installProgram(force bool) error {
 	if err := migrateState(filepath.Dir(exe)); err != nil {
 		return err
 	}
+	if err := platform.Current().HardenDir(config.InstallDir()); err != nil {
+		return err
+	}
 	if installed != "" && installed != config.DefaultVersion {
 		logx.Ok("bridge", "updated %s from %s to %s", config.InstallDir(), installed, config.DefaultVersion)
 	} else {

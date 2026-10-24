@@ -65,8 +65,76 @@ func main() {
 	configureCmd.Flags().Int("scan-interval", 0, "file-watch stat-scan interval in seconds (default 15; kept if omitted)")
 	configureCmd.Flags().Bool("include-hidden", false, "include dotfiles/hidden dirs in file-watch (default false)")
 	configureCmd.Flags().String("log-dir", "", "directory for service log files (empty resets to <exe-dir>/logs)")
-	configureCmd.Flags().Bool("socket-logs", true, "stream the service log to API over a socket (default true)")
 	root.AddCommand(configureCmd)
+
+	featuresCmd := &cobra.Command{
+		Use:   "features",
+		Short: "List what this bridge does, and switch each on or off on this computer",
+	}
+	featuresCmd.AddCommand(&cobra.Command{
+		Use:   "list",
+		Short: "List its features: on here, in ViaVeritas, and so whether they run",
+		Args:  cobra.NoArgs,
+		RunE:  runFeatureList,
+	})
+	featuresCmd.AddCommand(&cobra.Command{
+		Use:   "enable <feature>",
+		Short: "Let a feature run on this computer (ViaVeritas can still switch it off)",
+		Args:  cobra.ExactArgs(1),
+		RunE:  runFeatureSet(true),
+	})
+	featuresCmd.AddCommand(&cobra.Command{
+		Use:   "disable <feature>",
+		Short: "Stop a feature on this computer, whatever ViaVeritas says",
+		Args:  cobra.ExactArgs(1),
+		RunE:  runFeatureSet(false),
+	})
+	root.AddCommand(featuresCmd)
+	root.AddCommand(updatesCommand())
+	root.AddCommand(logSourcesCommand())
+
+	root.AddCommand(&cobra.Command{
+		Use:   "pause",
+		Short: "Pause all remote access (terminal, commands, connections into the network, logs) until resumed",
+		Args:  cobra.NoArgs,
+		RunE:  runPause(true),
+	})
+	root.AddCommand(&cobra.Command{
+		Use:   "resume",
+		Short: "Resume remote access, as each feature's switches allow",
+		Args:  cobra.NoArgs,
+		RunE:  runPause(false),
+	})
+
+	sessionsCmd := &cobra.Command{
+		Use:   "sessions",
+		Short: "List or end what ViaVeritas has open on this computer",
+	}
+	sessionsCmd.AddCommand(&cobra.Command{
+		Use:   "list",
+		Short: "List the streams open now, and who opened them",
+		Args:  cobra.NoArgs,
+		RunE:  runSessionsList,
+	})
+	sessionsCmd.AddCommand(&cobra.Command{
+		Use:   "end <id>",
+		Short: "End one of them",
+		Args:  cobra.ExactArgs(1),
+		RunE:  runSessionsEnd,
+	})
+	sessionsCmd.AddCommand(&cobra.Command{
+		Use:   "run-as <user|system>",
+		Short: "Run terminals and commands from ViaVeritas as the person signed in here (user) or the administrator (system)",
+		Args:  cobra.ExactArgs(1),
+		RunE:  runSessionsRunAs,
+	})
+	sessionsCmd.AddCommand(&cobra.Command{
+		Use:   "notices <on|off>",
+		Short: "Say on this computer's screen when ViaVeritas opens a terminal or runs a command",
+		Args:  cobra.ExactArgs(1),
+		RunE:  runSessionsNotices,
+	})
+	root.AddCommand(sessionsCmd)
 
 	folderCmd := &cobra.Command{
 		Use:   "folder",

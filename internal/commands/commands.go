@@ -103,9 +103,18 @@ func Run(cfg config.Config, cmd Command) Result {
 
 func run(cfg config.Config, cmd Command) Result {
 	items := []Item{}
-	if len(cfg.Folders) == 0 {
+	refuse := ""
+	switch {
+	case !cfg.Allows(config.FeatureFiles):
+		refuse = "files are switched off on this computer"
+	case !cfg.PortalAllows(config.FeatureFiles):
+		refuse = "files are switched off for this bridge in ViaVeritas"
+	case len(cfg.Folders) == 0:
+		refuse = "no folder is synced"
+	}
+	if refuse != "" {
 		for _, p := range targets(cmd) {
-			items = append(items, Item{Path: p, Error: errFailed, Message: "no folder is synced"})
+			items = append(items, Item{Path: p, Error: errFailed, Message: refuse})
 		}
 		return Result{Items: items}
 	}

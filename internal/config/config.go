@@ -42,11 +42,26 @@ type Config struct {
 	ScanIntervalSeconds int  `json:"scan_interval_seconds,omitempty"`
 	IncludeHidden       bool `json:"include_hidden,omitempty"`
 
-	// SocketLogs streams the service log to ViaVeritas over the socket the
-	// bridge keeps open for the API's commands. Defaults true; no omitempty so
-	// an explicit false survives a save/reload round-trip instead of being
-	// dropped and re-defaulting to true.
-	SocketLogs bool `json:"socket_logs"`
+	// Features is this computer's switch for each feature it names; one it
+	// doesn't name takes its default (Feature.Default).
+	Features map[Feature]bool `json:"features,omitempty"`
+	// PortalFeatures is ViaVeritas's switch for each feature, as it last said
+	// (the heartbeat's answer, or a `features` event on the socket).
+	PortalFeatures map[Feature]bool `json:"portal_features,omitempty"`
+	// RemotePaused holds every remote feature (Feature.Remote), whatever the switches say.
+	RemotePaused bool `json:"remote_paused,omitempty"`
+	// RunAs is who a terminal or a command from ViaVeritas runs as: the person
+	// signed in at this computer ("user", the default) or its administrator
+	// ("system": root, or SYSTEM on Windows). Read via SessionsRunAs.
+	RunAs RunAs `json:"run_as,omitempty"`
+	// HideSessionNotices stops the notice on this computer's screen when
+	// ViaVeritas opens a terminal or runs a command. Read via SessionNotices.
+	HideSessionNotices bool `json:"hide_session_notices,omitempty"`
+	// LogSources are the logs ViaVeritas may read here beside the bridge's own
+	// (`logs`, a remote feature): files, the journal, the unified log, event logs.
+	// Null until someone edits the list here: the system's usual logs until then
+	// (DefaultLogSources), and the list as edited after, even an empty one.
+	LogSources []LogSource `json:"log_sources"`
 
 	// BridgePort is the port the single bridge HTTP listener binds (all file
 	// endpoints + /healthz). Zero means unconfigured; read via BridgeAddr(). The
@@ -80,7 +95,6 @@ func Defaults() Config {
 	return Config{
 		APIBaseURL: "https://api.viaveritas.app",
 		Version:    DefaultVersion,
-		SocketLogs: true,
 	}
 }
 

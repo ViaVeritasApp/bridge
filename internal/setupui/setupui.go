@@ -60,6 +60,15 @@ func Serve(ctx context.Context, hooks Hooks) error {
 	mux.HandleFunc("/api/folders/rename", s.guard(s.handleFolderRename))
 	mux.HandleFunc("/api/folders/remove", s.guard(s.handleFolderRemove))
 	mux.HandleFunc("/api/restart", s.guard(s.handleRestart))
+	mux.HandleFunc("/api/remote", s.guard(s.handleRemote))
+	mux.HandleFunc("/api/features", s.guard(s.handleFeature))
+	mux.HandleFunc("/api/pause", s.guard(s.handlePause))
+	mux.HandleFunc("/api/sessions/end", s.guard(s.handleSessionEnd))
+	mux.HandleFunc("/api/updates/now", s.guard(s.handleUpdateNow))
+	mux.HandleFunc("/api/sessions/run-as", s.guard(s.handleRunAs))
+	mux.HandleFunc("/api/sessions/notices", s.guard(s.handleNotices))
+	mux.HandleFunc("/api/logs/add", s.guard(s.handleLogAdd))
+	mux.HandleFunc("/api/logs/remove", s.guard(s.handleLogRemove))
 	// ping/bye drive auto-shutdown on browser close. They only stop this local
 	// server, so loopback-only (no CSRF) is enough — sendBeacon can't set the
 	// CSRF header anyway.
