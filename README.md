@@ -45,7 +45,16 @@ sudo ./bridge folder add /path/to/files   # optional: as many as you like, none 
 A service installed before pairing waits for it, and starts working the moment
 the bridge is paired.
 
-On macOS, clear the quarantine flag first: `sudo xattr -dr com.apple.quarantine bridge`.
+Or double-click `bridge` (`bridge.exe` on Windows): it opens a terminal window,
+asks for the computer's password there (Windows asks for an administrator
+first instead), and opens the setup guide in the browser (see "Guided setup").
+
+On macOS the first double-click of a downloaded copy is blocked ("Apple could
+not verify…"), because the program isn't signed by an Apple developer: choose
+Done, then System Settings › Privacy & Security › **Open Anyway**, and
+double-click it again. A copy downloaded with `curl` or unpacked with `tar` in
+Terminal isn't blocked. `xattr -dr com.apple.quarantine bridge` does the same
+from Terminal.
 
 ## Where it lives
 
@@ -126,7 +135,8 @@ always on.
 
 ## Guided setup
 
-`sudo ./bridge setup` (or just `sudo ./bridge`, or a double-click) opens a
+`sudo ./bridge setup` (or `./bridge`, or a double-click, which ask for the
+password in the terminal first) opens a
 local dashboard in the browser, served on `127.0.0.1` with a per-run CSRF
 token: a setup guide (install, pairing, and folders if wanted) until the bridge is set up,
 then what it is doing (the service, files in sync, ViaVeritas's last answer,

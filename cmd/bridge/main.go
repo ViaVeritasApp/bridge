@@ -2,6 +2,7 @@
 package main
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"os"
@@ -239,20 +240,7 @@ func main() {
 			}
 			return
 		}
-		// Operator double-clicked the binary. Try a native GUI elevation
-		// prompt and re-exec elevated; handled=false means headless/SSH/
-		// already-root → fall through to the CLI path below.
-		if handled, _ := platform.RelaunchElevated(); handled {
-			// Elevated child finished (or the user dismissed the prompt) — exit quietly.
-			return
-		}
-		if err := launchSetupUI(); err != nil {
-			if !errors.Is(err, platform.ErrNotElevated) {
-				logx.Error("bridge", "%v", err)
-			}
-			os.Exit(1)
-		}
-		return
+		os.Exit(runBare())
 	}
 
 	if err := root.Execute(); err != nil {
@@ -261,4 +249,36 @@ func main() {
 		}
 		os.Exit(1)
 	}
+}
+
+// runBare is a person running the program with no arguments: a double-click
+// in Finder, Explorer or a file manager, or `bridge` typed in a terminal. It
+// runs the setup wizard as root/Administrator in a terminal window, asking for
+// the password there first when it needs it (see platform.StartSetup), and
+// returns the exit code.
+func runBare() int {
+	if done, code := platform.StartSetup(); done {
+		if code != 0 && code != 130 {
+			waitForEnter()
+		}
+		return code
+	}
+	if err := launchSetupUI(); err != nil {
+		if !errors.Is(err, platform.ErrNotElevated) {
+			logx.Error("bridge", "%v", err)
+		}
+		waitForEnter()
+		return 1
+	}
+	return 0
+}
+
+// waitForEnter keeps a terminal window a double-click opened from closing on
+// an error before it can be read.
+func waitForEnter() {
+	if !platform.IsTerminal(os.Stdin) {
+		return
+	}
+	fmt.Fprint(os.Stderr, "\n  Press Enter to exit.")
+	_, _ = bufio.NewReader(os.Stdin).ReadString('\n')
 }

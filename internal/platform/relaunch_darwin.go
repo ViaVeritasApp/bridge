@@ -14,11 +14,6 @@ func (osImpl) GUIElevationAvailable() bool {
 	return os.Getenv("SSH_CONNECTION") == "" && os.Getenv("SSH_TTY") == ""
 }
 
-// shellQuote wraps s in single quotes for /bin/sh, escaping embedded quotes.
-func shellQuote(s string) string {
-	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
-}
-
 // appleEscape escapes a Go string for use inside an AppleScript double-quoted
 // string literal.
 func appleEscape(s string) string {
