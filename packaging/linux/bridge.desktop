@@ -2,6 +2,6 @@
 Type=Application
 Name=Bridge Setup
 Comment=Configure and pair the Bridge
-Exec=/opt/bridge setup
-Terminal=false
+Exec=/opt/viaveritas/bridge/bridge
+Terminal=true
 Categories=Utility;
