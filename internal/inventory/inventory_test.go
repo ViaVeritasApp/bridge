@@ -31,3 +31,18 @@ func TestCollectDescribesThisComputer(t *testing.T) {
 		t.Error("the same computer hashed differently")
 	}
 }
+
+func TestHashIgnoresWhatChangesOnItsOwn(t *testing.T) {
+	a := Inventory{CPU: CPU{Model: "x", MHz: 3243.66}, Bridge: BridgeFacts{PID: 1}}
+	b := a
+	b.CPU.MHz = 2445.4
+	b.Bridge.PID = 2
+	b.CollectedAt = b.CollectedAt.Add(1)
+	if a.Hash() != b.Hash() {
+		t.Error("a changing clock speed, process or time changed the hash")
+	}
+	b.CPU.Model = "y"
+	if a.Hash() == b.Hash() {
+		t.Error("a different processor hashed the same")
+	}
+}

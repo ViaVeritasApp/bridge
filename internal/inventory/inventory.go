@@ -181,11 +181,13 @@ func Collect(ctx context.Context, personal bool, bridge BridgeFacts) Inventory {
 }
 
 // Hash is what tells one inventory from another: everything but when it was
-// collected and the bridge's own process.
+// collected, the bridge's own process and the processor's clock (on Linux
+// without cpufreq, VMs mostly, that's the current speed, different each read).
 func (inv Inventory) Hash() string {
 	c := inv
 	c.CollectedAt = time.Time{}
 	c.Bridge.PID = 0
+	c.CPU.MHz = 0
 	b, _ := json.Marshal(c)
 	sum := sha256.Sum256(b)
 	return hex.EncodeToString(sum[:])
